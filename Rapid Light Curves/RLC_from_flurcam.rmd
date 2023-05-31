@@ -1,0 +1,32 @@
+fluorcam_data from parse_flurcam_files.rmd and creates a data frame with cols: 
+SampleName, Well, Reef, Site, Habitat, Pale, Group, Temperature, PAR, ETR, QY
+input: fluorcam_data.csv
+output: fluorcam_RLC_data.csv
+
+```{r}
+fluorcam_data <- read.csv("fluorcam_data.csv")
+
+etr_data <- NULL
+for (i in seq_len(nrow(fluorcam_data))) {
+    sample <- fluorcam_data[i, ]
+    for (m in seq(1:15)) {
+        new_row <- data.frame(
+            SampleName = sample$SampleName,
+            Well = sample$Well,
+            Reef = as.character(sample$Reef),
+            Site = as.character(sample$Site),
+            Habitat = as.character(sample$Habitat),
+            Pale = as.character(sample$Pale),
+            Group = as.character(sample$Group),
+            Temperature = sample$Temperature,
+            PAR = fluorcam_data[i, paste0("T2_PAR", m)],
+            ETR = fluorcam_data[i, paste0("T2_ETR", m)],
+            QY = fluorcam_data[i, paste0("T2_QY_Lss", m)]
+        )
+        etr_data <- rbind(etr_data, new_row)
+    }
+}
+
+write.csv(etr_data, "Rapid Light Curves/fluorcam_RLC_data.csv")
+```
+

@@ -1,0 +1,99 @@
+
+
+```{r}
+library(dplyr)
+library(broom)
+source("../christineTheme.r")
+```
+
+# Load Data
+```{r}
+rlc_metrics <- read.csv("Rapid Light Curves/rlc_metrics.csv", header = TRUE, colClasses = c(
+    "character",
+    "factor", "numeric", "factor", "factor", "factor", "factor", "factor", "factor",
+    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
+))
+```
+
+# NPQ Residual
+```{r}
+# samples <- list("LI F5", "MO S3", "TB 2", "W7") # trial representative samples
+samples <- levels(as.factor(rlc_metrics$SampleName)) # all samples
+outputs <- NULL
+for (sample_name in samples) {
+    print(sample_name)
+    sample_data <- filter(rlc_metrics, SampleName == sample_name)
+
+    #######
+    # Fit #
+    #######
+
+    initial <- sample_data[1, "NPQ_residual"]
+
+    fit <<- nls_multstart(
+        NPQ_residual ~ a * exp(r * Temperature),
+        data = sample_data,
+        iter = 500,
+        start_upper = list(a = 0.5, r = 0.5),
+        start_lower = list(a = 0.0000001, r = 0),
+        # upper = list(I = 500, S = 300, k = 10),
+        # lower = c(I = 0, S = 0, k = 0),
+        supp_errors = "Y",
+        convergence_count = FALSE
+    )
+
+    # fit <- nls(
+    #     NPQ_residual ~ a * exp(r * Temperature),
+    #     data = sample_data,
+    #     start = list(a = 0.01, r = 0.1), # suggested start values the make sense with my data
+    #     control = nls.control(maxiter = 500) # tries 500 values to find the best fit
+    # )
+    print(fit)
+
+    #################
+    # Output Params #
+    #################
+
+    a <- coef(fit)[["a"]]
+    r <- coef(fit)[["r"]]
+    output_for_this_sample <- data.frame(
+        SampleName = sample_name,
+        Group = sample_data$Group[1],
+        a = a,
+        r = r,
+        AIC = AIC(fit),
+        RSS = deviance(fit)
+    )
+    outputs <- rbind(outputs, output_for_this_sample)
+
+    ########
+    # Plot #
+    ########
+
+    new_data <- data.frame(Temperature = seq(min(sample_data$Temperature) - 10, max(sample_data$Temperature) + 10, 0.2))
+    predictions <- augment(fit, newdata = new_data)
+
+    # plot data and model fit
+    plot <- ggplot(sample_data, aes(Temperature, NPQ_residual)) +
+        geom_point() +
+        geom_line(aes(Temperature, .fitted), predictions, col = "blue") +
+        christineTheme +
+        coord_cartesian(
+            #  ylim(min(sample_data$Temperature), max(sample_data$Temperature)),
+            xlim = c(min(sample_data$Temperature), max(sample_data$Temperature))
+        ) +
+        labs(
+            x = "Temperature (ºC)", y = "NPQ Residual",
+            title = sample_name,
+            subtitle = paste("AIC", AIC(fit)),
+            caption = paste("a:", a, "r:", r)
+        )
+
+    # print(plot)
+    ggsave(paste0("Thermal Curves/NPQ_residual/plots/", sample_name, "-exp.png"), plot)
+}
+
+
+write.csv(outputs, "Thermal Curves/NPQ_residual/exponential raw output.csv")
+```
+

@@ -1,0 +1,139 @@
+
+```{r}
+library(dplyr)
+library(broom)
+source("../christineTheme.r")
+```
+
+# Load Data
+```{r}
+rlc_metrics <- read.csv("Rapid Light Curves/rlc_metrics.csv", header = TRUE, colClasses = c(
+    "character",
+    "factor", "numeric", "factor", "factor", "factor", "factor", "factor", "factor",
+    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
+))
+```
+
+have a look
+```{R}
+ggplot(rlc_metrics, aes(x = as.numeric(Well), y = Pmax, col = SampleName)) +
+    geom_line(alpha = 0.6) +
+    geom_point() +
+    theme(legend.position = "none") +
+    christineTheme
+```
+
+# Output ETRmax models + model values
+```{r}
+library(nls.multstart)
+
+samples <- list("LI S27") # "MO S15", "W7", "LI F5", "MO S3", "TB 2") # trial representative samples
+samples <- levels(as.factor(rlc_metrics$SampleName)) # all samples
+outputs <- NULL
+failures <- 0
+for (sample_name in samples) {
+    print(sample_name)
+    sample_data <- filter(rlc_metrics, SampleName == sample_name)
+    # sample_data <- filter(data, SampleName == sample_name, Well != 6) # remove last temperature due to extreme spike
+
+    #######
+    # Fit #
+    #######
+
+    fit <- NULL
+
+    tryCatch(
+        {
+            initial <- sample_data[1, "Pmax"]
+
+            fit <<- nls_multstart(
+                Pmax ~ I - exp(-S + k * Temperature),
+                data = sample_data,
+                iter = 500,
+                start_upper = list(I = initial + 20, S = 100, k = 4),
+                start_lower = list(I = initial - 20, S = 10, k = 1),
+                # upper = list(I = 500, S = 300, k = 10),
+                # lower = list(I = 0, S = -20, k = 0),
+                supp_errors = "Y",
+                convergence_count = FALSE
+            )
+            print(fit)
+        },
+        error = function(err) {
+            message(err)
+            print("skipping")
+            failures <<- failures + 1
+        }
+    )
+
+    #################
+    # Output Params #
+    #################
+
+    if (!is.null(fit)) {
+        S <- coef(fit)[["S"]]
+        k <- coef(fit)[["k"]]
+        I <- coef(fit)[["I"]]
+        output_for_this_sample <- data.frame(
+            SampleName = sample_name,
+            Group = sample_data$Group[1],
+            S = S,
+            k = k,
+            I = I,
+            AIC = AIC(fit),
+            RSS = deviance(fit)
+        )
+    } else {
+        output_for_this_sample <- data.frame(
+            SampleName = sample_name,
+            Group = sample_data$Group[1],
+            S = NA,
+            k = NA,
+            I = NA,
+            AIC = NA,
+            RSS = NA
+        )
+    }
+    outputs <- rbind(outputs, output_for_this_sample)
+
+    ########
+    # Plot #
+    ########
+
+    coldest <- min(sample_data$Temperature)
+    hotest <- max(sample_data$Temperature)
+
+    # Plot the data
+    plot <- ggplot(sample_data, aes(Temperature, Pmax)) +
+        geom_point() +
+        labs(
+            x = "Temperature (ºC)", y = "ETRmax",
+            title = sample_name
+        ) +
+        coord_cartesian(
+            ylim = c(min(sample_data$Pmax) - 5, max(sample_data$Pmax) + 5),
+            xlim = c(coldest, hotest)
+        ) +
+        christineTheme
+
+    if (!is.null(fit)) {
+        # Add the fit to the plot
+
+        new_data <- data.frame(Temperature = seq(23, 40, 0.1))
+        predictions <- augment(fit, newdata = new_data)
+
+        # plot data and model fit
+        plot <- plot +
+            geom_line(aes(Temperature, .fitted), predictions, col = "blue") +
+            labs(caption = paste("S:", S, "k:", k, "I:", I))
+    }
+
+
+    # print(plot)
+    ggsave(paste0("Thermal Curves/ETRmax/plots/", sample_name, "-6.png"), plot)
+}
+
+print(failures)
+
+write.csv(outputs, "Thermal Curves/ETRmax/6 raw output.csv")
+```

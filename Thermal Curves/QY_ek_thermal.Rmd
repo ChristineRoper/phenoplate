@@ -1,0 +1,115 @@
+
+
+```{r}
+library(dplyr)
+library(broom)
+source("christineTheme.r")
+```
+
+# Load Data
+```{r}
+rlc_metrics <- read.csv("Rapid Light Curves/rlc_metrics.csv", header = TRUE, colClasses = c(
+    "character",
+    "factor", "numeric", "factor", "factor", "factor", "factor", "factor", "factor",
+    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
+))
+```
+
+have a look
+```{R}
+ggplot(rlc_metrics, aes(x = ek, y = qy_ek, col = Well)) +
+    scale_y_log10() +
+    scale_x_log10() +
+    geom_point() +
+    christineTheme
+
+ggplot(rlc_metrics, aes(x = as.numeric(Well), y = qy_ek, col = SampleName)) +
+    # scale_y_log10() +
+    coord_cartesian(ylim = c(0, 0.8)) +
+    geom_line(alpha = 0.6) +
+    geom_point() +
+    theme(legend.position = "none") +
+    christineTheme
+```
+
+# Output QY_EK
+```{r}
+samples <- list("W7", "LI F5", "MO S3", "TB 2") # trial representative samples
+samples <- levels(as.factor(rlc_metrics$SampleName)) # all samples
+outputs <- NULL
+
+for (sample_name in samples) {
+    print(sample_name)
+    sample_data <- filter(rlc_metrics, SampleName == sample_name)
+
+    # plot data and model fit
+    plot <- ggplot(sample_data, aes(Temperature, qy_ek)) +
+        geom_point() +
+        christineTheme +
+        labs(
+            x = "Temperature (ºC)", y = "QY EK",
+            title = sample_name
+        )
+
+    #######
+    # Fit #
+    #######
+
+    initial <- sample_data[1, "qy_ek"]
+
+    fit <- tryCatch(
+        {
+            nls(
+                qy_ek ~ I - exp(-S + k * Temperature),
+                data = sample_data,
+                start = list(I = initial, S = 10, k = 1), # suggested start values the make sense with my data
+                control = nls.control(maxiter = 500) # tries 500 values to find the best fit
+            )
+        },
+        error = message
+    )
+    print(fit)
+
+    # skip the rest if we couldn't fit
+    if (is.null(fit)) {
+        print(plot)
+        next # go on to the next sample
+    }
+
+    #################
+    # Output Params #
+    #################
+
+    S <- coef(fit)[["S"]]
+    k <- coef(fit)[["k"]]
+    I <- coef(fit)[["I"]]
+    output_for_this_sample <- data.frame(
+        SampleName = sample_name,
+        Group = sample_data$Group[1],
+        S = S,
+        k = k,
+        I = I,
+        AIC = AIC(fit),
+        RSS = deviance(fit)
+    )
+    outputs <- rbind(outputs, output_for_this_sample)
+
+    ########
+    # Plot #
+    ########
+
+    new_data <- data.frame(Temperature = seq(1, 40, 0.2))
+    predictions <- augment(fit, newdata = new_data)
+
+    # plot data and model fit
+    plot <- plot +
+        geom_line(aes(Temperature, .fitted), predictions, col = "blue") +
+        coord_cartesian(xlim = c(23, 41), ylim = c(min(sample_data$qy_ek), max(sample_data$qy_ek)))
+
+    ggsave(paste0("Thermal Curves/QY_ek/plots/", sample_name, ".png"), plot)
+}
+
+
+write.csv(outputs, "Thermal Curves/QY_ek/inverted exponential.csv")
+```
+

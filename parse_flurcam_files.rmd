@@ -1,0 +1,98 @@
+Reads all Fluorcam files (T1, T2, T2) and creates a data frame with cols: 
+SampleName, Well, Reef, Site, Habitat, Pale, Group, Temperature, plus all metrics of interest indicated below
+
+
+# Metrics of interest
+```{r}
+t1_metrics <- c("Fm")
+t2_metrics <- c(
+    paste0("PAR", seq(1:15)),
+    paste0("ETR", seq(1:15)),
+    paste0("QY_Lss", seq(1:15)),
+    paste0("NPQ_Lss", seq(1:15))
+)
+t3_metrics <- c("Fv/Fm_Lss1", "Fm", "QY_max")
+```
+
+
+```{r}
+library(dplyr)
+
+sample_list <- read.csv("Sample list.csv", header = TRUE, colClasses = c(
+    "numeric", "numeric", "character", "character",
+    "factor", "factor", "factor", "factor", "factor", "factor", "factor", "factor",
+    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
+))
+
+
+data <- NULL
+
+# go through each folder that data is stored in
+for (folder in levels(sample_list$Folder)) {
+    # Skip samples with no folder
+    if (folder == "") next
+
+    # Load the TXT files
+    t1 <- read.table(paste("..", folder, "T1.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
+    t2 <- read.table(paste("..", folder, "T2.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
+    t3 <- read.table(paste("..", folder, "T3.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
+
+    # get the samples in this folder
+    samples <- filter(sample_list, Folder == folder)
+
+    # for each sample
+    for (row_number in seq_len(nrow(samples))) {
+        # This sample from sample_list
+        sample <- samples[row_number, ]
+
+        # Create a row for this sample
+        new_row <- data.frame(
+            SampleName = sample$SampleName,
+            Reef = as.character(sample$Reef),
+            Site = as.character(sample$Site),
+            Habitat = as.character(sample$Habitat),
+            Pale = sample$HealthScore != "N/A",
+            Group = as.character(sample$Group)
+        )
+
+        # split values like "1-6" into 1 and 6
+        wells <- as.numeric(strsplit(as.character(sample$Wells), split = "-")[[1]])
+        for (well_number in wells[1]:wells[2]) {
+            # columns are named "Area.<well_number>"
+            column_name <- paste0("Area.", well_number)
+
+            new_row$Well <- well_number - wells[1] + 1
+
+            temp_name <- paste0("Temp", new_row$Well)
+            new_row$Temperature <- sample[, temp_name]
+
+            # create a function to add metrics to 'data' that can be used multiple times
+            add_metrics <- function(metrics, file, timepoint) {
+                # for each metric that we're interested in
+                for (metric in metrics) {
+                    # Get the row for this metric from the TXT file
+                    metric_data <- filter(file, X == metric)
+
+                    if (nrow(metric_data) == 0) {
+                        stop(paste("There is no", metric, "in", folder, timepoint))
+                    }
+
+                    # set this metric's values in the new row
+                    metric_name <- paste(timepoint, metric, sep = "_")
+                    new_row[, metric_name] <<- metric_data[, column_name]
+                }
+            }
+
+            add_metrics(t1_metrics, t1, "T1")
+            add_metrics(t2_metrics, t2, "T2")
+            add_metrics(t3_metrics, t3, "T3")
+
+            # Add the new row to 'data'
+            data <- rbind(data, new_row)
+        }
+    }
+}
+
+# View(data)
+write.csv(data, "fluorcam_data.csv")
+```

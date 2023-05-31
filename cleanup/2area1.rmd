@@ -1,0 +1,70 @@
+Checks all Fluorcam output files to find those that have two "area 1" columns so we can fix them
+
+Long Bommie/1-4  T2.txt as 2 Area 1 columns
+  ❌ They are NOT the same
+Long Bommie/5-8  T2.txt as 2 Area 1 columns
+  ❌ They are NOT the same
+Low Isles/2023 02 20/Flat 1-4  T2.txt as 2 Area 1 columns
+  ✅ They are identical
+Low Isles/2023 02 20/Flat 13-16  T2.txt as 2 Area 1 columns
+  ❌ They are NOT the same
+Low Isles/2023 02 20/Flat 5-8  T2.txt as 2 Area 1 columns
+  ❌ They are NOT the same
+Low Isles/2023 02 20/Flat 9-12  T2.txt as 2 Area 1 columns
+  ❌ They are NOT the same
+Low Isles/2023 02 20/Slope 1-4  T2.txt as 2 Area 1 columns
+  ❌ They are NOT the same
+Low Isles/2023 02 20/Slope 5-8  T2.txt as 2 Area 1 columns
+  ❌ They are NOT the same
+Low Isles/2023 02 20/Slope 9-12  T2.txt as 2 Area 1 columns
+  ❌ They are NOT the same
+
+```{r}
+sample_list <- read.csv("Sample list.csv", header = TRUE, colClasses = c(
+  "numeric", "numeric", "character", "character",
+  "factor", "factor", "factor", "factor", "factor", "factor", "factor", "factor",
+  "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
+))
+
+data <- NULL
+
+# go through each folder that data is stored in
+for (folder in levels(sample_list$Folder)) {
+  # Skip samples with no folder
+  if (folder == "") next
+
+  t1 <- read.table(paste("..", folder, "T1.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
+
+  if (colnames(t1)[3] == "Area.1.1") {
+    cat(folder, " T1.txt as 2 Area 1 columns\n")
+    if (all(t1$Area.1 == t1$Area.1.1)) {
+      cat("  ✅ They are identical\n")
+    } else {
+      cat("  ❌ They are NOT the same\n")
+    }
+  }
+
+  t2 <- read.table(paste("..", folder, "T2.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
+
+  if (colnames(t2)[3] == "Area.1.1") {
+    cat(folder, " T2.txt as 2 Area 1 columns\n")
+    if (all(t2$Area.1 == t2$Area.1.1)) {
+      cat("  ✅ They are identical\n")
+    } else {
+      cat("  ❌ They are NOT the same\n")
+    }
+  }
+
+  t3 <- read.table(paste("..", folder, "T3.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
+
+  if (colnames(t3)[3] == "Area.1.1") {
+    cat(folder, " T3.txt as 2 Area 1 columns\n")
+    if (all(t3$Area.1 == t3$Area.1.1)) {
+      cat("  ✅ They are identical\n")
+    } else {
+      cat("  ❌ They are NOT the same\n")
+    }
+  }
+}
+```
+
