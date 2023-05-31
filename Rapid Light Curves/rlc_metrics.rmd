@@ -18,8 +18,6 @@ library(ggplot2)
 source("christineTheme.r")
 ```
 
-
-# Final Method
 ```{R}
 library(minpack.lm) # for nlsLM
 library(broom) # for augment
