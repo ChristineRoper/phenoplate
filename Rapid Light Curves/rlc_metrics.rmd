@@ -23,17 +23,8 @@ library(minpack.lm) # for nlsLM
 library(broom) # for augment
 source("Rapid Light Curves/get_qy_ek.r") # for get_qy_ek
 
-Eilers_PI <- function(Pmax, Iopt, a, I) {
-    pi <- (Pmax * I) / ((Pmax / (a * Iopt^2)) * I^2 + ((1 - (2 * Pmax) / (a * Iopt)) * I) + (Pmax / a))
-    return(pi)
-}
-
-# Forces Iopt and Ek to be equal
-# Used in cases where Eilers_PI fit would result in Ek > Iopt
-Eilers_PI_x <- function(Pmax, a, I) {
-    Iopt <- Pmax / a
-    pi <- (Pmax * I) / ((Pmax / (a * Iopt^2)) * I^2 + ((1 - (2 * Pmax) / (a * Iopt)) * I) + (Pmax / a))
-    return(pi)
+QY_PI <- function(QY_max, Ek, I) {
+    return(((QY_max * Ek) * (1 - exp(-I / Ek))) / I)
 }
 
 sampleNames <- c(
@@ -55,7 +46,7 @@ sampleNames <- levels(as.factor(rlc_data$SampleName)) # all samples
 
 output <- NULL
 
-rlc_data$ETR_fit <- NA
+rlc_data$QY_fit <- NA
 
 progress <- txtProgressBar(
     min = 0,
@@ -70,45 +61,35 @@ for (sample in sampleNames) {
 
     sampleData <- filter(rlc_data, SampleName == sample)
 
-    # ensure there are no negative ETRs
-    sampleData$ETR <- pmax(0, sampleData$ETR)
-
     for (well in 1:6) {
         # cat("well ", well, "\n")
         wellData <- filter(sampleData, Well == well)
 
-        simpleMax <- max(wellData$ETR)
+        simpleMax <- max(wellData$QY)
 
-        # cat("fit 1 \n")
-        # Fit Eilers
+        # Fit
         ###########
-        fit <- nlsLM(
-            ETR ~ Eilers_PI(Pmax, Iopt, a, PAR),
-            data = wellData,
-            start = list(Pmax = simpleMax, a = 0.2, Iopt = 1000),
-            lower = c(0, 0, 0),
-            upper = c(simpleMax * 1.2, 3, 5000),
-            control = nls.lm.control(maxiter = 500),
-            # trace=TRUE
+
+        fit <- tryCatch(
+            {
+                nlsLM(
+                    QY ~ QY_PI(QY_max, Ek, PAR),
+                    data = wellData,
+                    start = list(QY_max = simpleMax, Ek = 500),
+                    # lower = c(0, 0, 0),
+                    # upper = c(simpleMax * 1.2, 3, 5000),
+                    control = nls.lm.control(maxiter = 500),
+                    # trace=TRUE
+                )
+            },
+            error = function(e) {
+                cat("error in ", sample, " well ", well, " fit 1\n")
+                stop(e)
+            }
         )
 
-        Pmax <- coef(fit)[["Pmax"]]
-        Iopt <- coef(fit)[["Iopt"]]
-        alpha <- coef(fit)[["a"]]
-        ek <- Pmax / alpha
-
-        if (ek > Iopt) {
-            # cat("ek > Iopt fit 1 \n")
-            fit <- nlsLM(
-                ETR ~ Eilers_PI_x(Pmax, a, PAR),
-                data = wellData,
-                start = list(Pmax = simpleMax, a = 2),
-                lower = c(0, 0),
-                upper = c(simpleMax * 1.2, 3),
-                control = nls.lm.control(maxiter = 500),
-                # trace=TRUE
-            )
-        }
+        QY_max <- coef(fit)[["QY_max"]]
+        Ek <- coef(fit)[["Ek"]]
 
         # Remove outliers
         #################
@@ -119,53 +100,40 @@ for (sample in sampleNames) {
         outliers <- boxplot.stats(fitted$.resid)$out
         outliers <- fitted[fitted$.resid %in% outliers, ]
 
+        # First par is never outlier
+        outliers <- filter(outliers, PAR > 100)
+
         if (length(outliers)) {
             # plot them to see what's being removed
             plot <- plot +
-                geom_point(data = outliers, aes(x = PAR, y = ETR), colour = "red", pch = 4)
+                geom_point(data = outliers, aes(x = PAR, y = QY), colour = "red", pch = 1, size = 3)
 
             wellData2 <- filter(wellData, !PAR %in% outliers$PAR)
         }
 
-        # cat("fit 2 \n")
-        fit <- nlsLM(
-            ETR ~ Eilers_PI(Pmax, Iopt, a, PAR),
-            data = wellData2,
-            start = list(Pmax = simpleMax, a = 0.2, Iopt = 1000),
-            lower = c(0, 0, 0),
-            upper = c(simpleMax * 1.2, 3, 5000),
-            control = nls.lm.control(maxiter = 500),
-            # trace=TRUE
+        fit <- tryCatch(
+            {
+                nlsLM(
+                    QY ~ QY_PI(QY_max, Ek, PAR),
+                    data = wellData2,
+                    start = list(QY_max = simpleMax, Ek = 500),
+                    # lower = c(0, 0, 0),
+                    # upper = c(simpleMax * 1.2, 3, 5000),
+                    control = nls.lm.control(maxiter = 500),
+                    # trace=TRUE
+                )
+            },
+            error = function(e) {
+                cat("error in ", sample, " well ", well, " fit 2\n")
+                print(ggplot(wellData2) +
+                    geom_line(aes(x = PAR, y = QY)) +
+                    ggtitle("Error fitting this data"))
+                stop(e)
+            }
         )
 
-        Pmax <- coef(fit)[["Pmax"]]
-        Iopt <- coef(fit)[["Iopt"]]
-        alpha <- coef(fit)[["a"]]
-        ek <- Pmax / alpha
-
-        if (all(wellData2$ETR == 0)) {
-            Pmax <- 0
-            Iopt <- 0
-            alpha <- 1
-            ek <- Pmax / alpha
-        } else if (ek > Iopt) {
-            # cat("ek > Iopt fit 2 \n")
-
-            fit <- nlsLM(
-                ETR ~ Eilers_PI_x(Pmax, a, PAR),
-                data = wellData2,
-                start = list(Pmax = simpleMax, a = 2),
-                lower = c(0, 0),
-                upper = c(simpleMax * 1.2, 3),
-                control = nls.lm.control(maxiter = 500),
-                # trace=TRUE
-            )
-
-            Pmax <- coef(fit)[["Pmax"]]
-            alpha <- coef(fit)[["a"]]
-            ek <- Pmax / alpha
-            Iopt <- ek
-        }
+        QY_max <- coef(fit)[["QY_max"]]
+        Ek <- coef(fit)[["Ek"]]
 
 
         output <- rbind(output, data.frame(
@@ -177,41 +145,43 @@ for (sample in sampleNames) {
             Pale = as.character(wellData[1, "Pale"]),
             Group = as.character(wellData[1, "Group"]),
             Well = well,
-            Pmax = Pmax,
-            alpha = alpha,
-            ek = ek,
-            Iopt = Iopt,
-            qy_ek = get_qy_ek(wellData, ek),
+            QY_max = QY_max,
+            Ek = Ek,
+            qy_ek = QY_PI(QY_max, Ek, Ek),
             AIC = AIC(fit),
             outliersRemoved = nrow(outliers)
         ))
 
+
         pars <- sampleData[sampleData$Well == well, ]$PAR
-        sampleData[sampleData$Well == well, "ETR_fit"] <- Eilers_PI(Pmax, Iopt, alpha, pars)
+        sampleData[sampleData$Well == well, "QY_fit"] <- QY_PI(QY_max, Ek, pars)
+
 
         plot <- plot +
-            geom_hline(yintercept = Pmax, color = "grey", linetype = "dotted") +
-            geom_segment(data = data.frame(Pmax = Pmax, ek = ek), mapping = aes(x = ek, y = Pmax, xend = 0, yend = 0), color = "grey", linetype = "dotted") +
-            geom_segment(data = data.frame(Pmax = Pmax, ek = ek), mapping = aes(x = ek, y = Pmax, xend = ek, yend = 0), color = "grey", linetype = "dotted") +
-            geom_segment(data = data.frame(Pmax = Pmax, Iopt = Iopt), mapping = aes(x = Iopt, y = Pmax, xend = Iopt, yend = 0), color = "pink", linetype = "dotted")
+            geom_hline(yintercept = QY_max, color = "grey", linetype = "dashed", alpha = 0.1) +
+            geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = 0, y = QY_max, xend = Ek, yend = 0), color = "grey", linetype = "dashed", alpha = 0.1) +
+            geom_vline(xintercept = Ek, color = "grey", linetype = "dashed", alpha = 0.1)
+        # geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = Ek, y = QY_max, xend = Ek, yend = 0), color = "grey", linetype = "dashed")
     }
 
 
     # plot
     plot <- plot +
+        geom_hline(yintercept = 0, color = "grey", linetype = "dashed", alpha = 0.1) +
         # Data
-        geom_line(data = sampleData, mapping = aes(x = PAR, y = ETR, col = Well), linetype = 2) +
+        geom_line(data = sampleData, mapping = aes(x = PAR, y = QY, col = Well), alpha = 0.1) +
+        geom_point(data = sampleData, mapping = aes(x = PAR, y = QY, col = Well)) +
         # Fit 1
-        geom_line(data = sampleData, mapping = aes(x = PAR, y = ETR_fit, col = Well), linetype = 1) +
-        coord_cartesian(xlim = c(0, 1750), ylim = c(0, max(sampleData$ETR))) +
+        geom_line(data = sampleData, mapping = aes(x = PAR, y = QY_fit, col = Well), linetype = 1) +
+        coord_cartesian(ylim = c(min(sampleData$QY), max(sampleData$QY))) +
         ggtitle(sample)
 
     # print(plot)
-    suppressMessages(ggsave(paste0("Rapid Light Curves/plots/", sample, ".png"), plot))
+    suppressMessages(ggsave(paste0("Rapid Light Curves/QY/plots/", sample, ".png"), plot))
 
     setTxtProgressBar(progress, getTxtProgressBar(progress) + 1)
 }
 close(progress)
 
-write.csv(output, "Rapid Light Curves/rlc_metrics.csv")
+write.csv(output, "Rapid Light Curves/rlc_qy_metrics.csv")
 ```
