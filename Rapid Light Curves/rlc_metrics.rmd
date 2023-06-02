@@ -5,7 +5,9 @@ output: Rapid Light Curves/RLC_metrics.csv
 
 ```{r}
 rlc_data <- read.csv("Rapid Light Curves/fluorcam_RLC_data.csv", header = TRUE, colClasses = c(
-    "character", "factor", "factor", "factor", "factor", "factor", "factor", "factor", "numeric", "numeric", "numeric", "numeric"
+    "character",
+    "factor", "factor", "factor", "factor", "factor", "factor", "factor",
+    "numeric", "numeric", "numeric", "numeric"
 ))
 ```
 
