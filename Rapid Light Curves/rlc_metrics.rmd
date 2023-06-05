@@ -23,11 +23,37 @@ source("christineTheme.r")
 ```{R}
 library(minpack.lm) # for nlsLM
 library(broom) # for augment
-source("Rapid Light Curves/get_qy_ek.r") # for get_qy_ek
 
 QY_PI <- function(QY_max, Ek, I) {
     return(((QY_max * Ek) * (1 - exp(-I / Ek))) / I)
 }
+
+
+Webb_PI <- function(I, Pmax, alpha) {
+    Ek <- Pmax / alpha
+    return(
+        Pmax * (1 - exp(-I / Ek))
+    )
+}
+
+Webb_QY_PI <- function(QY_max, Ek, I) {
+    Pmax <- QY_max * Ek
+    alpha <- Pmax / Ek
+    return(Webb_PI(I, Pmax, alpha) / I)
+}
+
+Eilers_PI <- function(Pmax, Iopt, a, I) {
+    pi <- (Pmax * I) / ((Pmax / (a * Iopt^2)) * I^2 + ((1 - (2 * Pmax) / (a * Iopt)) * I) + (Pmax / a))
+    return(pi)
+}
+
+Eilers_QY_PI <- function(QY_max, IoptExtra, Ek, I) {
+    Iopt <- Ek + IoptExtra
+    Pmax <- QY_max * Ek
+    alpha <- Pmax / Ek
+    return(Eilers_PI(Pmax, Iopt, alpha, I) / I)
+}
+
 
 sampleNames <- c(
     "LI F20",
@@ -50,21 +76,24 @@ output <- NULL
 
 rlc_data$QY_fit <- NA
 
-progress <- txtProgressBar(
-    min = 0,
-    max = length(sampleNames),
-    style = 3
-)
+printOnTop <- function(...values) {
+    cat("\33[2K\r", ...values)
+}
 
+
+cat("\n")
 for (sample in sampleNames) {
-    # cat(sample, "\n")
+    printOnTop(sample)
 
     plot <- ggplot() + christineTheme
 
     sampleData <- filter(rlc_data, SampleName == sample)
 
+    # Ensure no QY is negative
+    sampleData$QY <- pmax(sampleData$QY, 0)
+
     for (well in 1:6) {
-        # cat("well ", well, "\n")
+        # cat(" well ", well)
         wellData <- filter(sampleData, Well == well)
 
         simpleMax <- max(wellData$QY)
@@ -75,11 +104,11 @@ for (sample in sampleNames) {
         fit <- tryCatch(
             {
                 nlsLM(
-                    QY ~ QY_PI(QY_max, Ek, PAR),
+                    QY ~ Eilers_QY_PI(QY_max, IoptExtra, Ek, PAR),
                     data = wellData,
-                    start = list(QY_max = simpleMax, Ek = 500),
-                    # lower = c(0, 0, 0),
-                    # upper = c(simpleMax * 1.2, 3, 5000),
+                    start = list(QY_max = simpleMax, IoptExtra = 100, Ek = 500),
+                    lower = c(0, 0, 0),
+                    upper = c(1, 1700, 1700),
                     control = nls.lm.control(maxiter = 500),
                     # trace=TRUE
                 )
@@ -90,8 +119,11 @@ for (sample in sampleNames) {
             }
         )
 
-        QY_max <- coef(fit)[["QY_max"]]
         Ek <- coef(fit)[["Ek"]]
+        IoptExtra <- coef(fit)[["IoptExtra"]]
+        Iopt <- Ek + IoptExtra
+        QY_max <- coef(fit)[["QY_max"]]
+
 
         # Remove outliers
         #################
@@ -111,31 +143,34 @@ for (sample in sampleNames) {
                 geom_point(data = outliers, aes(x = PAR, y = QY), colour = "red", pch = 1, size = 3)
 
             wellData2 <- filter(wellData, !PAR %in% outliers$PAR)
+
+
+
+            fit <- tryCatch(
+                {
+                    nlsLM(
+                        QY ~ Eilers_QY_PI(QY_max, IoptExtra, Ek, PAR),
+                        data = wellData2,
+                        start = list(QY_max = simpleMax, IoptExtra = 100, Ek = 500),
+                        lower = c(0, 0, 0),
+                        upper = c(1, 1700, 1700),
+                        control = nls.lm.control(maxiter = 500),
+                        # trace=TRUE
+                    )
+                },
+                error = function(e) {
+                    cat("error in ", sample, " well ", well, " fit 1\n")
+                    stop(e)
+                }
+            )
+
+
+            Ek <- coef(fit)[["Ek"]]
+            IoptExtra <- coef(fit)[["IoptExtra"]]
+            Iopt <- Ek + IoptExtra
+            QY_max <- coef(fit)[["QY_max"]]
         }
 
-        fit <- tryCatch(
-            {
-                nlsLM(
-                    QY ~ QY_PI(QY_max, Ek, PAR),
-                    data = wellData2,
-                    start = list(QY_max = simpleMax, Ek = 500),
-                    # lower = c(0, 0, 0),
-                    # upper = c(simpleMax * 1.2, 3, 5000),
-                    control = nls.lm.control(maxiter = 500),
-                    # trace=TRUE
-                )
-            },
-            error = function(e) {
-                cat("error in ", sample, " well ", well, " fit 2\n")
-                print(ggplot(wellData2) +
-                    geom_line(aes(x = PAR, y = QY)) +
-                    ggtitle("Error fitting this data"))
-                stop(e)
-            }
-        )
-
-        QY_max <- coef(fit)[["QY_max"]]
-        Ek <- coef(fit)[["Ek"]]
 
 
         output <- rbind(output, data.frame(
@@ -149,20 +184,21 @@ for (sample in sampleNames) {
             Well = well,
             QY_max = QY_max,
             Ek = Ek,
-            qy_ek = QY_PI(QY_max, Ek, Ek),
+            Iopt = Iopt,
+            qy_ek = Eilers_QY_PI(QY_max, Iopt, Ek, Ek),
             AIC = AIC(fit),
             outliersRemoved = nrow(outliers)
         ))
 
 
         pars <- sampleData[sampleData$Well == well, ]$PAR
-        sampleData[sampleData$Well == well, "QY_fit"] <- QY_PI(QY_max, Ek, pars)
+        sampleData[sampleData$Well == well, "QY_fit"] <- Eilers_QY_PI(QY_max, Iopt, Ek, pars)
 
 
         plot <- plot +
-            geom_hline(yintercept = QY_max, color = "grey", linetype = "dashed", alpha = 0.1) +
-            geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = 0, y = QY_max, xend = Ek, yend = 0), color = "grey", linetype = "dashed", alpha = 0.1) +
-            geom_vline(xintercept = Ek, color = "grey", linetype = "dashed", alpha = 0.1)
+            geom_hline(yintercept = QY_max, color = "grey", linetype = "dashed", alpha = 0.2) +
+            geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = 0, y = QY_max, xend = Ek, yend = 0), color = "grey", linetype = "dashed", alpha = 0.2) +
+            geom_vline(xintercept = Ek, color = "grey", linetype = "dashed", alpha = 0.2)
         # geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = Ek, y = QY_max, xend = Ek, yend = 0), color = "grey", linetype = "dashed")
     }
 
@@ -179,11 +215,11 @@ for (sample in sampleNames) {
         ggtitle(sample)
 
     # print(plot)
-    suppressMessages(ggsave(paste0("Rapid Light Curves/QY/plots/", sample, ".png"), plot))
-
-    setTxtProgressBar(progress, getTxtProgressBar(progress) + 1)
+    suppressMessages(ggsave(paste0("Rapid Light Curves/QY/plots/", sample, "Eilers.png"), plot))
 }
-close(progress)
 
-write.csv(output, "Rapid Light Curves/rlc_qy_metrics.csv")
+cat("\n")
+
+write.csv(output, "Rapid Light Curves/rlc_qy_metrics_eilers.csv")
 ```
+
