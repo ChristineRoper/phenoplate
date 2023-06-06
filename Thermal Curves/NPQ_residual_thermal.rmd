@@ -8,21 +8,28 @@ source("../christineTheme.r")
 
 # Load Data
 ```{r}
-rlc_metrics <- read.csv("Rapid Light Curves/rlc_metrics.csv", header = TRUE, colClasses = c(
+data <- read.csv("fluorcam_data.csv", header = TRUE, colClasses = c(
     "character",
-    "factor", "numeric", "factor", "factor", "factor", "factor", "factor", "factor",
-    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
+    "factor", "factor", "factor", "factor", "factor", "factor", "factor", "numeric", "numeric",
+    rep("numeric", 15),
+    rep("numeric", 15),
+    rep("numeric", 15),
+    rep("numeric", 15),
+    "numeric", "numeric", "numeric"
 ))
+
+data$NPQ_residual <- pmax(0, (data$T1_Fm - data$T3_Fm) / data$T3_Fm)
 ```
 
 # NPQ Residual
 ```{r}
-# samples <- list("LI F5", "MO S3", "TB 2", "W7") # trial representative samples
-samples <- levels(as.factor(rlc_metrics$SampleName)) # all samples
+library(minpack.lm) # for nlsLM
+samples <- list("LI F5", "MO S3", "TB 2", "W7") # trial representative samples
+# samples <- levels(as.factor(data$SampleName)) # all samples
 outputs <- NULL
 for (sample_name in samples) {
     print(sample_name)
-    sample_data <- filter(rlc_metrics, SampleName == sample_name)
+    sample_data <- filter(data, SampleName == sample_name)
 
     #######
     # Fit #
@@ -30,24 +37,15 @@ for (sample_name in samples) {
 
     initial <- sample_data[1, "NPQ_residual"]
 
-    fit <<- nls_multstart(
+    fit <<- nlsLM(
         NPQ_residual ~ a * exp(r * Temperature),
         data = sample_data,
-        iter = 500,
-        start_upper = list(a = 0.5, r = 0.5),
-        start_lower = list(a = 0.0000001, r = 0),
-        # upper = list(I = 500, S = 300, k = 10),
-        # lower = c(I = 0, S = 0, k = 0),
-        supp_errors = "Y",
-        convergence_count = FALSE
+        start = list(a = 0.01, r = 0.1),
+        # lower = c(0, 0),
+        # upper = c(1, 1700),
+        control = nls.lm.control(maxiter = 500),
+        # trace=TRUE
     )
-
-    # fit <- nls(
-    #     NPQ_residual ~ a * exp(r * Temperature),
-    #     data = sample_data,
-    #     start = list(a = 0.01, r = 0.1), # suggested start values the make sense with my data
-    #     control = nls.control(maxiter = 500) # tries 500 values to find the best fit
-    # )
     print(fit)
 
     #################
