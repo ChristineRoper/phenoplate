@@ -3,7 +3,7 @@
 ```{r}
 library(dplyr)
 library(broom)
-source("../christineTheme.r")
+source("christineTheme.r")
 ```
 
 # Load Data
@@ -27,11 +27,16 @@ library(minpack.lm) # for nlsLM
 library(ggplot2) # for nlsLM
 source("nls_outlier_removal.r")
 
+
+printOnTop <- function(...values) {
+    cat("\33[2K\r", ...values)
+}
+
 # samples <- list("BH 13") # ,"BH 13", "LI F5", "MO S3", "TB 2", "W7") # trial representative samples
 samples <- levels(as.factor(data$SampleName)) # all samples
 outputs <- NULL
 for (sample_name in samples) {
-    print(sample_name)
+    printOnTop(sample_name)
     sample_data <- filter(data, SampleName == sample_name)
 
     # Create the plot
@@ -63,22 +68,21 @@ for (sample_name in samples) {
     }
 
 
-    plot_outliers <- function(outliers) {
-        if (length(outliers)) {
-            # plot them to see what's being removed
-            plot <<- plot +
-                geom_point(data = outliers, aes(x = Temperature, y = NPQ_residual), colour = "red", pch = 1, size = 3)
-        }
 
-        return(outliers)
-    }
 
     fit <- nls_outlier_removal(
         sample_data,
-        fit_data = fit_data,
-        handle_outliers = plot_outliers
+        fit_data = fit_data
     )
-    print(fit)
+
+    outliers <- fit$outliers
+    fit <- fit$fit
+
+    # plot them to see what's being removed
+    if (length(outliers)) {
+        plot <- plot +
+            geom_point(data = outliers, aes(x = Temperature, y = NPQ_residual), colour = "red", pch = 1, size = 3)
+    }
 
     #################
     # Output Params #
@@ -109,7 +113,7 @@ for (sample_name in samples) {
         labs(subtitle = paste("AIC", AIC(fit)), caption = paste("a:", a, "r:", r))
 
     # print(plot)
-    ggsave(paste0("Thermal Curves/NPQ_residual/plots/", sample_name, "-exp.png"), plot)
+    suppressMessages(ggsave(paste0("Thermal Curves/NPQ_residual/plots/", sample_name, "-exp.png"), plot))
 }
 
 

@@ -15,7 +15,7 @@ nls_outlier_removal <- function(data, fit_data, handle_outliers = identity) {
 
     # no outliers, return fit
     if (nrow(outliers) == 0) {
-        return(fit)
+        return(list(fit = fit, outliers = outliers))
     }
 
     # allow outliers to be acted on, manipulated, etc
@@ -32,8 +32,5 @@ nls_outlier_removal <- function(data, fit_data, handle_outliers = identity) {
     # update fit
     fit <- fit_data(data)
 
-    return(fit)
+    return(list(fit = fit, outliers = outliers))
 }
-
-
-c(24.50, 29.50, 31.50, 34.50, 35.75, 37.00) %in% c(as.double(35.75), as.double(37))
