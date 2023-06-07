@@ -1,4 +1,6 @@
-
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = '~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis')
+```
 
 ```{r}
 library(dplyr)

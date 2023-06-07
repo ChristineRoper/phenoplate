@@ -1,4 +1,6 @@
-
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = '~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis')
+```
 
 ```{r}
 library(dplyr)
@@ -67,9 +69,6 @@ for (sample_name in samples) {
         )
     }
 
-
-
-
     fit <- nls_outlier_removal(
         sample_data,
         fit_data = fit_data
@@ -94,9 +93,9 @@ for (sample_name in samples) {
         SampleName = sample_name,
         Group = sample_data$Group[1],
         a = a,
-        r = r,
-        AIC = AIC(fit),
-        RSS = deviance(fit)
+        r = r
+        #AIC = AIC(fit),
+        #RSS = deviance(fit)
     )
     outputs <- rbind(outputs, output_for_this_sample)
 
@@ -110,7 +109,10 @@ for (sample_name in samples) {
     # Add fitted data to plot
     plot <- plot +
         geom_line(aes(Temperature, .fitted), predictions, col = "blue") +
-        labs(subtitle = paste("AIC", AIC(fit)), caption = paste("a:", a, "r:", r))
+        labs(
+          #subtitle = paste("AIC", AIC(fit)),
+          caption = paste("a:", a, "r:", r)
+        )
 
     # print(plot)
     suppressMessages(ggsave(paste0("Thermal Curves/NPQ_residual/plots/", sample_name, "-exp.png"), plot))
