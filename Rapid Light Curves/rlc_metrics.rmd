@@ -16,10 +16,6 @@ rlc_data <- read.csv("Rapid Light Curves/fluorcam_RLC_data.csv", header = TRUE, 
 ```
 
 ```{r}
-# httpgd outputs plots to browser
-library(httpgd)
-hgd()
-
 library(ggplot2)
 source("christineTheme.r")
 ```
