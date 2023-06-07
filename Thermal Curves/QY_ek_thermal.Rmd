@@ -34,13 +34,26 @@ ggplot(rlc_metrics, aes(x = as.numeric(Well), y = qy_ek, col = SampleName)) +
 
 # Output QY_EK
 ```{r}
+library(minpack.lm) # for nlsLM
+
 samples <- list("W7", "LI F5", "MO S3", "TB 2") # trial representative samples
 samples <- levels(as.factor(rlc_metrics$SampleName)) # all samples
 outputs <- NULL
 
+printOnTop <- function(...values) {
+    cat("\33[2K\r", ...values, " ")
+}
+
 for (sample_name in samples) {
-    print(sample_name)
+    printOnTop(sample_name)
     sample_data <- filter(rlc_metrics, SampleName == sample_name)
+
+    if (sample_data[sample_data$Well == 6, "qy_ek"] > sample_data[sample_data$Well == 5, "qy_ek"]) {
+        sample_data[sample_data$Well == 6, "qy_ek"] <- NA
+    }
+    if (sample_data[sample_data$Well == 5, "qy_ek"] > sample_data[sample_data$Well == 4, "qy_ek"]) {
+        sample_data[sample_data$Well == 5, "qy_ek"] <- NA
+    }
 
     # plot data and model fit
     plot <- ggplot(sample_data, aes(Temperature, qy_ek)) +
@@ -59,7 +72,7 @@ for (sample_name in samples) {
 
     fit <- tryCatch(
         {
-            nls(
+            nlsLM(
                 qy_ek ~ I - exp(-S + k * Temperature),
                 data = sample_data,
                 start = list(I = initial, S = 10, k = 1), # suggested start values the make sense with my data
@@ -68,11 +81,10 @@ for (sample_name in samples) {
         },
         error = message
     )
-    print(fit)
 
     # skip the rest if we couldn't fit
     if (is.null(fit)) {
-        print(plot)
+        suppressMessages(ggsave(paste0("Thermal Curves/QY_ek/plots/failed/", sample_name, ".png"), plot))
         next # go on to the next sample
     }
 
@@ -106,7 +118,7 @@ for (sample_name in samples) {
         geom_line(aes(Temperature, .fitted), predictions, col = "blue") +
         coord_cartesian(xlim = c(23, 41), ylim = c(min(sample_data$qy_ek), max(sample_data$qy_ek)))
 
-    ggsave(paste0("Thermal Curves/QY_ek/plots/", sample_name, ".png"), plot)
+    suppressMessages(ggsave(paste0("Thermal Curves/QY_ek/plots/", sample_name, ".png"), plot))
 }
 
 

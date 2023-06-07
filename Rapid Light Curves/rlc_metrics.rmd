@@ -23,6 +23,7 @@ source("christineTheme.r")
 ```{R}
 library(minpack.lm) # for nlsLM
 library(broom) # for augment
+source("nls_outlier_removal.r")
 
 QY_PI <- function(QY_max, Ek, I) {
     return(((QY_max * Ek) * (1 - exp(-I / Ek))) / I)
@@ -70,7 +71,7 @@ sampleNames <- c(
     "BH 6",
     "TB 2"
 )
-sampleNames <- levels(as.factor(rlc_data$SampleName)) # all samples
+# sampleNames <- levels(as.factor(rlc_data$SampleName)) # all samples
 
 output <- NULL
 
@@ -101,56 +102,15 @@ for (sample in sampleNames) {
         # Fit
         ###########
 
-        fit <- tryCatch(
-            {
-                nlsLM(
-                    QY ~ Eilers_QY_PI(QY_max, IoptExtra, Ek, PAR),
-                    data = wellData,
-                    start = list(QY_max = simpleMax, IoptExtra = 100, Ek = 500),
-                    lower = c(0, 0, 0),
-                    upper = c(1, 1700, 1700),
-                    control = nls.lm.control(maxiter = 500),
-                    # trace=TRUE
-                )
-            },
-            error = function(e) {
-                cat("error in ", sample, " well ", well, " fit 1\n")
-                stop(e)
-            }
-        )
+        # First par is never an outlier
+        handle_outliers <- function(outliers) filter(outliers, PAR > 100)
 
-        Ek <- coef(fit)[["Ek"]]
-        IoptExtra <- coef(fit)[["IoptExtra"]]
-        Iopt <- Ek + IoptExtra
-        QY_max <- coef(fit)[["QY_max"]]
-
-
-        # Remove outliers
-        #################
-
-        # Find outliers using boxplot's internals
-
-        fitted <- augment(fit)
-        outliers <- boxplot.stats(fitted$.resid)$out
-        outliers <- fitted[fitted$.resid %in% outliers, ]
-
-        # First par is never outlier
-        outliers <- filter(outliers, PAR > 100)
-
-        if (length(outliers)) {
-            # plot them to see what's being removed
-            plot <- plot +
-                geom_point(data = outliers, aes(x = PAR, y = QY), colour = "red", pch = 1, size = 3)
-
-            wellData2 <- filter(wellData, !PAR %in% outliers$PAR)
-
-
-
-            fit <- tryCatch(
+        fit_data <- function(data) {
+            tryCatch(
                 {
                     nlsLM(
                         QY ~ Eilers_QY_PI(QY_max, IoptExtra, Ek, PAR),
-                        data = wellData2,
+                        data = data,
                         start = list(QY_max = simpleMax, IoptExtra = 100, Ek = 500),
                         lower = c(0, 0, 0),
                         upper = c(1, 1700, 1700),
@@ -163,14 +123,27 @@ for (sample in sampleNames) {
                     stop(e)
                 }
             )
-
-
-            Ek <- coef(fit)[["Ek"]]
-            IoptExtra <- coef(fit)[["IoptExtra"]]
-            Iopt <- Ek + IoptExtra
-            QY_max <- coef(fit)[["QY_max"]]
         }
 
+        fit <- nls_outlier_removal(
+            wellData,
+            fit_data = fit_data,
+            handle_outliers = handle_outliers
+        )
+
+        outliers <- fit$outliers
+        fit <- fit$fit
+
+        # plot them to see what's being removed
+        if (length(outliers)) {
+            plot <- plot +
+                geom_point(data = outliers, aes(x = PAR, y = QY), colour = "red", pch = 1, size = 3)
+        }
+
+        Ek <- coef(fit)[["Ek"]]
+        IoptExtra <- coef(fit)[["IoptExtra"]]
+        Iopt <- Ek + IoptExtra
+        QY_max <- coef(fit)[["QY_max"]]
 
 
         output <- rbind(output, data.frame(

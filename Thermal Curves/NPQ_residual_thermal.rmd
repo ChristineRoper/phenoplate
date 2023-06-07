@@ -3,7 +3,7 @@
 ```{r}
 library(dplyr)
 library(broom)
-source("../christineTheme.r")
+source("christineTheme.r")
 ```
 
 # Load Data
@@ -24,12 +24,33 @@ data$NPQ_residual <- pmax(0, (data$T1_Fm - data$T3_Fm) / data$T3_Fm)
 # NPQ Residual
 ```{r}
 library(minpack.lm) # for nlsLM
-samples <- list("LI F5", "MO S3", "TB 2", "W7") # trial representative samples
-# samples <- levels(as.factor(data$SampleName)) # all samples
+library(ggplot2) # for nlsLM
+source("nls_outlier_removal.r")
+
+
+printOnTop <- function(...values) {
+    cat("\33[2K\r", ...values)
+}
+
+# samples <- list("BH 13") # ,"BH 13", "LI F5", "MO S3", "TB 2", "W7") # trial representative samples
+samples <- levels(as.factor(data$SampleName)) # all samples
 outputs <- NULL
 for (sample_name in samples) {
-    print(sample_name)
+    printOnTop(sample_name)
     sample_data <- filter(data, SampleName == sample_name)
+
+    # Create the plot
+    #################
+    plot <- ggplot(sample_data, aes(Temperature, NPQ_residual)) +
+        geom_point() +
+        christineTheme +
+        coord_cartesian(
+            xlim = c(min(sample_data$Temperature), max(sample_data$Temperature))
+        ) +
+        labs(
+            x = "Temperature (ºC)", y = "NPQ Residual",
+            title = sample_name
+        )
 
     #######
     # Fit #
@@ -37,16 +58,31 @@ for (sample_name in samples) {
 
     initial <- sample_data[1, "NPQ_residual"]
 
-    fit <<- nlsLM(
-        NPQ_residual ~ a * exp(r * Temperature),
-        data = sample_data,
-        start = list(a = 0.01, r = 0.1),
-        # lower = c(0, 0),
-        # upper = c(1, 1700),
-        control = nls.lm.control(maxiter = 500),
-        # trace=TRUE
+    fit_data <- function(data) {
+        nlsLM(
+            NPQ_residual ~ a * exp(r * Temperature),
+            data = data,
+            start = list(a = 0.01, r = 0.1),
+            control = nls.lm.control(maxiter = 500)
+        )
+    }
+
+
+
+
+    fit <- nls_outlier_removal(
+        sample_data,
+        fit_data = fit_data
     )
-    print(fit)
+
+    outliers <- fit$outliers
+    fit <- fit$fit
+
+    # plot them to see what's being removed
+    if (length(outliers)) {
+        plot <- plot +
+            geom_point(data = outliers, aes(x = Temperature, y = NPQ_residual), colour = "red", pch = 1, size = 3)
+    }
 
     #################
     # Output Params #
@@ -71,24 +107,13 @@ for (sample_name in samples) {
     new_data <- data.frame(Temperature = seq(min(sample_data$Temperature) - 10, max(sample_data$Temperature) + 10, 0.2))
     predictions <- augment(fit, newdata = new_data)
 
-    # plot data and model fit
-    plot <- ggplot(sample_data, aes(Temperature, NPQ_residual)) +
-        geom_point() +
+    # Add fitted data to plot
+    plot <- plot +
         geom_line(aes(Temperature, .fitted), predictions, col = "blue") +
-        christineTheme +
-        coord_cartesian(
-            #  ylim(min(sample_data$Temperature), max(sample_data$Temperature)),
-            xlim = c(min(sample_data$Temperature), max(sample_data$Temperature))
-        ) +
-        labs(
-            x = "Temperature (ºC)", y = "NPQ Residual",
-            title = sample_name,
-            subtitle = paste("AIC", AIC(fit)),
-            caption = paste("a:", a, "r:", r)
-        )
+        labs(subtitle = paste("AIC", AIC(fit)), caption = paste("a:", a, "r:", r))
 
     # print(plot)
-    ggsave(paste0("Thermal Curves/NPQ_residual/plots/", sample_name, "-exp.png"), plot)
+    suppressMessages(ggsave(paste0("Thermal Curves/NPQ_residual/plots/", sample_name, "-exp.png"), plot))
 }
 
 
