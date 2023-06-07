@@ -67,7 +67,7 @@ sampleNames <- c(
     "BH 6",
     "TB 2"
 )
-# sampleNames <- levels(as.factor(rlc_data$SampleName)) # all samples
+sampleNames <- levels(as.factor(rlc_data$SampleName)) # all samples
 
 output <- NULL
 
