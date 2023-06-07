@@ -10,16 +10,16 @@ source("christineTheme.r")
 
 # Load Data
 ```{r}
-rlc_metrics <- read.csv("Rapid Light Curves/rlc_metrics.csv", header = TRUE, colClasses = c(
+rlc_metrics <- read.csv("Rapid Light Curves/rlc_qy_metrics_eilers.csv", header = TRUE, colClasses = c(
     "character",
     "factor", "numeric", "factor", "factor", "factor", "factor", "factor", "factor",
-    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
+    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
 ))
 ```
 
 have a look
 ```{R}
-ggplot(rlc_metrics, aes(x = ek, y = qy_ek, col = Well)) +
+ggplot(rlc_metrics, aes(x = Ek, y = qy_ek, col = Well)) +
     scale_y_log10() +
     scale_x_log10() +
     geom_point() +
