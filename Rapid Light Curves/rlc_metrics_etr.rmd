@@ -1,0 +1,218 @@
+Processes the RLC part of the Fluorcam data with PI curves to extract Pmax, alpha, ek
+input: Rapid Light Curves/fluorcam_RLC_data.csv
+output: Rapid Light Curves/RLC_metrics.csv
+
+
+```{r}
+rlc_data <- read.csv("Rapid Light Curves/fluorcam_RLC_data.csv", header = TRUE, colClasses = c(
+    "character", "factor", "factor", "factor", "factor", "factor", "factor", "factor", "numeric", "numeric", "numeric", "numeric"
+))
+```
+
+```{r}
+# httpgd outputs plots to browser
+library(httpgd)
+hgd()
+
+library(ggplot2)
+source("christineTheme.r")
+```
+
+```{R}
+library(minpack.lm) # for nlsLM
+library(broom) # for augment
+source("Rapid Light Curves/get_qy_ek.r") # for get_qy_ek
+
+Eilers_PI <- function(Pmax, Iopt, a, I) {
+    pi <- (Pmax * I) / ((Pmax / (a * Iopt^2)) * I^2 + ((1 - (2 * Pmax) / (a * Iopt)) * I) + (Pmax / a))
+    return(pi)
+}
+
+# Forces Iopt and Ek to be equal
+# Used in cases where Eilers_PI fit would result in Ek > Iopt
+Eilers_PI_x <- function(Pmax, a, I) {
+    Iopt <- Pmax / a
+    pi <- (Pmax * I) / ((Pmax / (a * Iopt^2)) * I^2 + ((1 - (2 * Pmax) / (a * Iopt)) * I) + (Pmax / a))
+    return(pi)
+}
+
+sampleNames <- c(
+    "LI F20",
+    "LI F1",
+    "LI F2",
+    "LI F8",
+    "LI S1",
+    "LI S3",
+    "MO S1",
+    "MO S9",
+    "RB S1",
+    "RB S9",
+    "BH 1",
+    "BH 6",
+    "TB 2"
+)
+sampleNames <- levels(as.factor(rlc_data$SampleName)) # all samples
+
+output <- NULL
+
+rlc_data$ETR_fit <- NA
+
+progress <- txtProgressBar(
+    min = 0,
+    max = length(sampleNames),
+    style = 3
+)
+
+for (sample in sampleNames) {
+    # cat(sample, "\n")
+
+    plot <- ggplot() + christineTheme
+
+    sampleData <- filter(rlc_data, SampleName == sample)
+
+    # ensure there are no negative ETRs
+    sampleData$ETR <- pmax(0, sampleData$ETR)
+
+    for (well in 1:6) {
+        # cat("well ", well, "\n")
+        wellData <- filter(sampleData, Well == well)
+
+        simpleMax <- max(wellData$ETR)
+
+        # cat("fit 1 \n")
+        # Fit Eilers
+        ###########
+        fit <- nlsLM(
+            ETR ~ Eilers_PI(Pmax, Iopt, a, PAR),
+            data = wellData,
+            start = list(Pmax = simpleMax, a = 0.2, Iopt = 1000),
+            lower = c(0, 0, 0),
+            upper = c(simpleMax * 1.2, 3, 5000),
+            control = nls.lm.control(maxiter = 500),
+            # trace=TRUE
+        )
+
+        Pmax <- coef(fit)[["Pmax"]]
+        Iopt <- coef(fit)[["Iopt"]]
+        alpha <- coef(fit)[["a"]]
+        ek <- Pmax / alpha
+
+        if (ek > Iopt) {
+            # cat("ek > Iopt fit 1 \n")
+            fit <- nlsLM(
+                ETR ~ Eilers_PI_x(Pmax, a, PAR),
+                data = wellData,
+                start = list(Pmax = simpleMax, a = 2),
+                lower = c(0, 0),
+                upper = c(simpleMax * 1.2, 3),
+                control = nls.lm.control(maxiter = 500),
+                # trace=TRUE
+            )
+        }
+
+        # Remove outliers
+        #################
+
+        # Find outliers using boxplot's internals
+
+        fitted <- augment(fit)
+        outliers <- boxplot.stats(fitted$.resid)$out
+        outliers <- fitted[fitted$.resid %in% outliers, ]
+
+        if (length(outliers)) {
+            # plot them to see what's being removed
+            plot <- plot +
+                geom_point(data = outliers, aes(x = PAR, y = ETR), colour = "red", pch = 4)
+
+            wellData2 <- filter(wellData, !PAR %in% outliers$PAR)
+
+
+            # cat("fit 2 \n")
+            fit <- nlsLM(
+                ETR ~ Eilers_PI(Pmax, Iopt, a, PAR),
+                data = wellData2,
+                start = list(Pmax = simpleMax, a = 0.2, Iopt = 1000),
+                lower = c(0, 0, 0),
+                upper = c(simpleMax * 1.2, 3, 5000),
+                control = nls.lm.control(maxiter = 500),
+                # trace=TRUE
+            )
+
+            Pmax <- coef(fit)[["Pmax"]]
+            Iopt <- coef(fit)[["Iopt"]]
+            alpha <- coef(fit)[["a"]]
+            ek <- Pmax / alpha
+
+            if (all(wellData2$ETR == 0)) {
+                Pmax <- 0
+                Iopt <- 0
+                alpha <- 1
+                ek <- Pmax / alpha
+            } else if (ek > Iopt) {
+                # cat("ek > Iopt fit 2 \n")
+
+                fit <- nlsLM(
+                    ETR ~ Eilers_PI_x(Pmax, a, PAR),
+                    data = wellData2,
+                    start = list(Pmax = simpleMax, a = 2),
+                    lower = c(0, 0),
+                    upper = c(simpleMax * 1.2, 3),
+                    control = nls.lm.control(maxiter = 500),
+                    # trace=TRUE
+                )
+
+                Pmax <- coef(fit)[["Pmax"]]
+                alpha <- coef(fit)[["a"]]
+                ek <- Pmax / alpha
+                Iopt <- ek
+            }
+        }
+
+
+        output <- rbind(output, data.frame(
+            SampleName = sample,
+            Temperature = wellData[1, "Temperature"],
+            Reef = as.character(wellData[1, "Reef"]),
+            Site = as.character(wellData[1, "Site"]),
+            Habitat = as.character(wellData[1, "Habitat"]),
+            Pale = as.character(wellData[1, "Pale"]),
+            Group = as.character(wellData[1, "Group"]),
+            Well = well,
+            Pmax = Pmax,
+            alpha = alpha,
+            ek = ek,
+            Iopt = Iopt,
+            qy_ek = get_qy_ek(wellData, ek),
+            AIC = AIC(fit),
+            outliersRemoved = nrow(outliers)
+        ))
+
+        pars <- sampleData[sampleData$Well == well, ]$PAR
+        sampleData[sampleData$Well == well, "ETR_fit"] <- Eilers_PI(Pmax, Iopt, alpha, pars)
+
+        plot <- plot +
+            geom_hline(yintercept = Pmax, color = "grey", linetype = "dotted") +
+            geom_segment(data = data.frame(Pmax = Pmax, ek = ek), mapping = aes(x = ek, y = Pmax, xend = 0, yend = 0), color = "grey", linetype = "dotted") +
+            geom_segment(data = data.frame(Pmax = Pmax, ek = ek), mapping = aes(x = ek, y = Pmax, xend = ek, yend = 0), color = "grey", linetype = "dotted") +
+            geom_segment(data = data.frame(Pmax = Pmax, Iopt = Iopt), mapping = aes(x = Iopt, y = Pmax, xend = Iopt, yend = 0), color = "pink", linetype = "dotted")
+    }
+
+
+    # plot
+    plot <- plot +
+        # Data
+        geom_line(data = sampleData, mapping = aes(x = PAR, y = ETR, col = Well), linetype = 2) +
+        # Fit 1
+        geom_line(data = sampleData, mapping = aes(x = PAR, y = ETR_fit, col = Well), linetype = 1) +
+        coord_cartesian(xlim = c(0, 1750), ylim = c(0, max(sampleData$ETR))) +
+        ggtitle(sample)
+
+    # print(plot)
+    suppressMessages(ggsave(paste0("Rapid Light Curves/plots/", sample, ".png"), plot))
+
+    setTxtProgressBar(progress, getTxtProgressBar(progress) + 1)
+}
+close(progress)
+
+write.csv(output, "Rapid Light Curves/rlc_metrics.csv")
+```
