@@ -75,8 +75,6 @@ sampleNames <- c(
 
 output <- NULL
 
-rlc_data$QY_fit <- NA
-
 printOnTop <- function(...values) {
     cat("\33[2K\r", ...values)
 }
@@ -87,6 +85,7 @@ for (sample in sampleNames) {
     printOnTop(sample)
 
     plot <- ggplot() + christineTheme
+    fit_curves <- NULL
 
     sampleData <- filter(rlc_data, SampleName == sample)
 
@@ -158,33 +157,40 @@ for (sample in sampleNames) {
             QY_max = QY_max,
             Ek = Ek,
             Iopt = Iopt,
-            qy_ek = Eilers_QY_PI(QY_max, Iopt, Ek, Ek),
+            qy_ek = Eilers_QY_PI(QY_max, IoptExtra, Ek, Ek),
             AIC = AIC(fit),
             outliersRemoved = nrow(outliers)
         ))
 
 
-        pars <- sampleData[sampleData$Well == well, ]$PAR
-        sampleData[sampleData$Well == well, "QY_fit"] <- Eilers_QY_PI(QY_max, Iopt, Ek, pars)
-
-
         plot <- plot +
-            geom_hline(yintercept = QY_max, color = "grey", linetype = "dashed", alpha = 0.2) +
-            geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = 0, y = QY_max, xend = Ek, yend = 0), color = "grey", linetype = "dashed", alpha = 0.2) +
-            geom_vline(xintercept = Ek, color = "grey", linetype = "dashed", alpha = 0.2)
+            # geom_hline(yintercept = QY_max, color = "grey", linetype = "dashed", alpha = 0.6) +
+            geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek, IoptExtra = IoptExtra), mapping = aes(x = Ek, y = 0, xend = Ek, yend = Eilers_QY_PI(QY_max, IoptExtra, Ek, Ek)), color = "grey", alpha = 0.5) +
+            geom_point(data = data.frame(QY_max = QY_max, Ek = Ek, IoptExtra = IoptExtra), mapping = aes(x = Ek, y = Eilers_QY_PI(QY_max, IoptExtra, Ek, Ek)), pch = 4, size = 2.5) +
+            geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = 0, y = QY_max, xend = Ek, yend = 0), color = "grey", linetype = "dotted", alpha = 0.4)
+        # geom_vline(xintercept = Ek, color = "grey", linetype = "dashed", alpha = 0.6)
         # geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = Ek, y = QY_max, xend = Ek, yend = 0), color = "grey", linetype = "dashed")
+
+        # Save the curve for plotting later
+        pars <- seq(0, 1800, 1) # get pars from 0 to 1800 to plot the curve against
+        curve <- data.frame(PAR = pars, QY = Eilers_QY_PI(QY_max, IoptExtra, Ek, pars), Well = well)
+        fit_curves <- rbind(fit_curves, curve)
     }
+
+    fit_curves$Well <- as.factor(fit_curves$Well)
 
 
     # plot
     plot <- plot +
-        geom_hline(yintercept = 0, color = "grey", linetype = "dashed", alpha = 0.1) +
+        geom_hline(yintercept = 0, color = "grey", alpha = 0.6) +
         # Data
-        geom_line(data = sampleData, mapping = aes(x = PAR, y = QY, col = Well), alpha = 0.1) +
+        geom_line(data = sampleData, mapping = aes(x = PAR, y = QY, col = Well), alpha = 0.2) +
         geom_point(data = sampleData, mapping = aes(x = PAR, y = QY, col = Well)) +
         # Fit 1
-        geom_line(data = sampleData, mapping = aes(x = PAR, y = QY_fit, col = Well), linetype = 1) +
-        coord_cartesian(ylim = c(min(sampleData$QY), max(sampleData$QY))) +
+        # geom_line(data = sampleData, mapping = aes(x = PAR, y = QY_fit, col = Well), linetype = 1) +
+        geom_line(data = fit_curves, mapping = aes(x = PAR, y = QY, col = Well), linetype = 1) +
+
+        coord_cartesian(ylim = c(0, 1), xlim = c(0, max(sampleData$PAR))) +
         ggtitle(sample)
 
     # print(plot)
