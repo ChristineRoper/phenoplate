@@ -25,10 +25,6 @@ library(minpack.lm) # for nlsLM
 library(broom) # for augment
 source("nls_outlier_removal.r")
 
-QY_PI <- function(QY_max, Ek, I) {
-    return(((QY_max * Ek) * (1 - exp(-I / Ek))) / I)
-}
-
 
 Webb_PI <- function(I, Pmax, alpha) {
     Ek <- Pmax / alpha
@@ -202,3 +198,155 @@ cat("\n")
 write.csv(output, "Rapid Light Curves/rlc_qy_metrics_eilers.csv")
 ```
 
+
+# jake tests
+```{r}
+bh_run_1 <- filter(rlc_data, SampleName %in% c("BH 1", "BH 2", "BH 3", "BH 4"))
+View(bh_run_1)
+
+ggplot(bh_run_1) +
+    geom_line(aes(x = PAR, y = QY, col = SampleName, linetype = Well))
+
+means <- summarise(group_by(bh_run_1, PAR), QY = mean(QY))
+
+ggplot(means) +
+    geom_line(aes(x = PAR, y = QY))
+
+
+fit <- nlsLM(
+    QY ~ Eilers_QY_PI(QY_max, IoptExtra, Ek, PAR),
+    data = means,
+    start = list(QY_max = 0.5, IoptExtra = 100, Ek = 500),
+    lower = c(0, 0, 0),
+    upper = c(1, 1700, 1700),
+    control = nls.lm.control(maxiter = 500),
+)
+
+Ek <- coef(fit)[["Ek"]]
+IoptExtra <- coef(fit)[["IoptExtra"]]
+Iopt <- Ek + IoptExtra
+QY_max <- coef(fit)[["QY_max"]]
+
+pars <- sampleData[sampleData$Well == well, ]$PAR
+means$fit <- Eilers_QY_PI(QY_max, IoptExtra, Ek, pars)
+
+ggplot(means) +
+    geom_line(aes(x = PAR, y = QY), linetype = "dotted") +
+    geom_line(aes(x = PAR, y = fit))
+
+
+bh_run_1$normalised <- bh_run_1$QY - means$QY
+
+ggplot(bh_run_1) +
+    geom_line(aes(x = PAR, y = normalised, col = SampleName, linetype = Well))
+```
+
+```{r}
+bh_run_1 <- filter(rlc_data, SampleName %in% c("BH 1", "BH 2", "BH 3", "BH 4"))
+
+bh_run_1$QY_fit <- NA
+bh_run_1$outlier <- FALSE
+
+
+cat("\n")
+for (sample in c("BH 1", "BH 2", "BH 3", "BH 4")) {
+    printOnTop(sample)
+
+    sampleData <- filter(bh_run_1, SampleName == sample)
+
+    for (well in 1:6) {
+        wellData <- filter(sampleData, Well == well)
+
+        simpleMax <- max(wellData$QY)
+
+        # Fit
+        ###########
+        fit <- nlsLM(
+            QY ~ Eilers_QY_PI(QY_max, IoptExtra, Ek, PAR),
+            data = wellData,
+            start = list(QY_max = 0.5, IoptExtra = 100, Ek = 500),
+            lower = c(0, 0, 0),
+            upper = c(1, 1700, 1700),
+            control = nls.lm.control(maxiter = 500),
+        )
+
+        Ek <- coef(fit)[["Ek"]]
+        IoptExtra <- coef(fit)[["IoptExtra"]]
+        Iopt <- Ek + IoptExtra
+        QY_max <- coef(fit)[["QY_max"]]
+
+        fitted <- augment(fit)
+        outliers <- boxplot.stats(fitted$.resid)$out
+        outliers <- fitted[fitted$.resid %in% outliers, ]
+
+        # First par is never outlier
+        outliers <- filter(outliers, PAR > 100)
+
+        print(outliers$PAR)
+
+        bh_run_1[bh_run_1$SampleName == sample & sampleData$Well == well & sampleData$PAR %in% outliers$PAR, "outlier"] <- TRUE
+
+        pars <- sampleData[sampleData$Well == well, ]$PAR
+        bh_run_1[bh_run_1$SampleName == sample & sampleData$Well == well, "QY_fit"] <- Eilers_QY_PI(QY_max, IoptExtra, Ek, pars)
+    }
+}
+
+bh_run_1$resid <- bh_run_1$QY_fit - bh_run_1$QY
+
+ggplot(bh_run_1) +
+    geom_line(aes(x = PAR, y = resid, col = SampleName, linetype = Well))
+
+ggplot(bh_run_1) +
+    geom_line(aes(x = PAR, y = resid, col = SampleName, linetype = Well)) +
+    geom_point(aes(x = PAR, y = resid, col = outlier))
+
+means_resid <- summarise(group_by(bh_run_1, PAR), resid = mean(resid))
+count_outliers <- tally(group_by(bh_run_1, PAR, outlier))
+
+sampleData$normalised <- sampleData$QY + means_resid$resid # , each=6)
+
+ggplot(sampleData) +
+    geom_line(aes(x = PAR, y = QY, col = Well)) +
+    geom_line(aes(x = PAR, y = normalised, col = Well), linetype = "dotted")
+
+ggplot(means_resid) +
+    geom_line(aes(x = PAR, y = resid))
+```
+
+```{r}
+QY_max <- .5
+Iopt <- 200
+Ek <- 50
+
+sampleData <- filter(rlc_data, SampleName == "LI F1", Well == 5)
+sampleData$QYtest <- Eilers_QY_PI(QY_max, Iopt, Ek, sampleData$PAR)
+
+ggplot(sampleData) +
+    geom_line(aes(x = PAR, y = QY)) +
+    geom_line(aes(x = PAR, y = QYtest))
+
+# test_data <- data.frame(PAR = seq(1, 10800, 20))
+# test_data$QY <- Eilers_QY_PI(QY_max, Iopt, Ek, test_data$PAR)
+# # test_data$ETR <- Eilers_PI(QY_max, Iopt, Ek, test_data$PAR)
+
+# ggplot(test_data) +
+#     geom_line(aes(x = PAR, y = QY)) +ylim(0,1)
+#     # +
+#     # geom_line(aes(x = PAR, y = ETR))
+```
+
+```{r}
+metrics_eilers <- output # read.csv("Rapid Light Curves/rlc_qy_metrics_eilers.csv")
+metrics_webb <- read.csv("Rapid Light Curves/rlc_qy_metrics_webb.csv")
+
+nrow(metrics_eilers)
+nrow(metrics_webb)
+mean(metrics_eilers$AIC)
+mean(metrics_webb$AIC)
+mean(metrics_eilers$outliersRemoved)
+mean(metrics_webb$outliersRemoved)
+ggplot(metrics_eilers, aes(x = Group, y = qy_ek)) +
+    geom_boxplot()
+ggplot(metrics_webb, aes(x = Group, y = qy_ek)) +
+    geom_boxplot()
+```
