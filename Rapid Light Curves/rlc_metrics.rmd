@@ -2,6 +2,10 @@ Processes the RLC part of the Fluorcam data with PI curves to extract Pmax, alph
 input: Rapid Light Curves/fluorcam_RLC_data.csv
 output: Rapid Light Curves/RLC_metrics.csv
 
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = '~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis')
+```
+
 
 ```{r}
 rlc_data <- read.csv("Rapid Light Curves/fluorcam_RLC_data.csv", header = TRUE, colClasses = c(
