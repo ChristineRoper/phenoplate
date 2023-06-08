@@ -108,7 +108,7 @@ for (sample in sampleNames) {
                         data = data,
                         start = list(QY_max = simpleMax, IoptExtra = 100, Ek = 500),
                         lower = c(0, 0, 0),
-                        upper = c(1, 1700, 1700),
+                        upper = c(0.8, 1700, 1700),
                         control = nls.lm.control(maxiter = 500),
                         # trace=TRUE
                     )
