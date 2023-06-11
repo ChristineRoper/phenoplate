@@ -33,7 +33,7 @@ Webb_PI <- function(I, Pmax, alpha) {
     )
 }
 
-Webb_QY_PI <- function(QY_max, Ek, I) {
+Webb_QY_PI <- function(QY_max, Ek, I) { #modified for QY as per Emma's Excel sheet
     Pmax <- QY_max * Ek
     alpha <- Pmax / Ek
     return(Webb_PI(I, Pmax, alpha) / I)
@@ -104,11 +104,11 @@ for (sample in sampleNames) {
             tryCatch(
                 {
                     nlsLM(
-                        QY ~ Eilers_QY_PI(QY_max, IoptExtra, Ek, PAR),
+                        QY ~ Webb_QY_PI(QY_max, Ek, PAR),
                         data = data,
-                        start = list(QY_max = simpleMax, IoptExtra = 100, Ek = 500),
-                        lower = c(0, 0, 0),
-                        upper = c(0.8, 1700, 1700),
+                        start = list(QY_max = simpleMax, Ek = 500),
+                        lower = c(0, 0),
+                        upper = c(0.8, 1700),
                         control = nls.lm.control(maxiter = 500),
                         # trace=TRUE
                     )
@@ -136,8 +136,8 @@ for (sample in sampleNames) {
         }
 
         Ek <- coef(fit)[["Ek"]]
-        IoptExtra <- coef(fit)[["IoptExtra"]]
-        Iopt <- Ek + IoptExtra
+        #IoptExtra <- coef(fit)[["IoptExtra"]]
+        #Iopt <- Ek + IoptExtra
         QY_max <- coef(fit)[["QY_max"]]
 
 
@@ -152,8 +152,8 @@ for (sample in sampleNames) {
             Well = well,
             QY_max = QY_max,
             Ek = Ek,
-            Iopt = Iopt,
-            qy_ek = Eilers_QY_PI(QY_max, IoptExtra, Ek, Ek),
+            #Iopt = Iopt,
+            qy_ek = Webb_QY_PI(QY_max, Ek, Ek),
             AIC = AIC(fit),
             outliersRemoved = nrow(outliers)
         ))
@@ -161,15 +161,15 @@ for (sample in sampleNames) {
 
         plot <- plot +
             # geom_hline(yintercept = QY_max, color = "grey", linetype = "dashed", alpha = 0.6) +
-            geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek, IoptExtra = IoptExtra), mapping = aes(x = Ek, y = 0, xend = Ek, yend = Eilers_QY_PI(QY_max, IoptExtra, Ek, Ek)), color = "grey", alpha = 0.5) +
-            geom_point(data = data.frame(QY_max = QY_max, Ek = Ek, IoptExtra = IoptExtra), mapping = aes(x = Ek, y = Eilers_QY_PI(QY_max, IoptExtra, Ek, Ek)), pch = 4, size = 2.5) +
+            geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = Ek, y = 0, xend = Ek, yend = Webb_QY_PI(QY_max, Ek, Ek)), color = "grey", alpha = 0.5) +
+            geom_point(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = Ek, y = Webb_QY_PI(QY_max, Ek, Ek)), pch = 4, size = 2.5) +
             geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = 0, y = QY_max, xend = Ek, yend = 0), color = "grey", linetype = "dotted", alpha = 0.4)
         # geom_vline(xintercept = Ek, color = "grey", linetype = "dashed", alpha = 0.6)
         # geom_segment(data = data.frame(QY_max = QY_max, Ek = Ek), mapping = aes(x = Ek, y = QY_max, xend = Ek, yend = 0), color = "grey", linetype = "dashed")
 
         # Save the curve for plotting later
         pars <- seq(0, 1800, 1) # get pars from 0 to 1800 to plot the curve against
-        curve <- data.frame(PAR = pars, QY = Eilers_QY_PI(QY_max, IoptExtra, Ek, pars), Well = well)
+        curve <- data.frame(PAR = pars, QY = Webb_QY_PI(QY_max, Ek, pars), Well = well)
         fit_curves <- rbind(fit_curves, curve)
     }
 
@@ -190,10 +190,10 @@ for (sample in sampleNames) {
         ggtitle(sample)
 
     # print(plot)
-    suppressMessages(ggsave(paste0("Rapid Light Curves/QY/plots/", sample, "Eilers.png"), plot))
+    suppressMessages(ggsave(paste0("Rapid Light Curves/QY/plots/", sample, "Webb.png"), plot))
 }
 
 cat("\n")
 
-write.csv(output, "Rapid Light Curves/rlc_qy_metrics_eilers.csv")
+write.csv(output, "Rapid Light Curves/rlc_qy_metrics_webb.csv")
 ```
