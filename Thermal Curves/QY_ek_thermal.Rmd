@@ -10,10 +10,10 @@ source("christineTheme.r")
 
 # Load Data
 ```{r}
-rlc_metrics <- read.csv("Rapid Light Curves/rlc_qy_metrics_eilers.csv", header = TRUE, colClasses = c(
+rlc_metrics <- read.csv("Rapid Light Curves/rlc_qy_metrics_webb.csv", header = TRUE, colClasses = c(
     "character",
     "factor", "numeric", "factor", "factor", "factor", "factor", "factor", "factor",
-    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
+    "numeric", "numeric", "numeric", "numeric", "numeric"
 ))
 ```
 
