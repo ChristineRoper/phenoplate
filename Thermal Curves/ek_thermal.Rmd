@@ -1,0 +1,144 @@
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+```
+
+```{r}
+library(dplyr)
+library(broom)
+source("christineTheme.r")
+```
+
+# Load Data
+```{r}
+rlc_metrics <- read.csv("Rapid Light Curves/rlc_qy_metrics_webb.csv", header = TRUE, colClasses = c(
+    "character",
+    "factor", "numeric", "factor", "factor", "factor", "factor", "factor", "factor",
+    "numeric", "numeric", "numeric", "numeric", "numeric"
+))
+```
+
+have a look
+```{R}
+library(httpgd)
+hgd()
+
+ggplot(rlc_metrics, aes(x = as.numeric(Well), y = Ek, col = SampleName)) +
+    # scale_y_log10() +
+    # coord_cartesian(ylim = c(0, 0.8)) +
+    geom_line(alpha = 0.6) +
+    geom_point() +
+    theme(legend.position = "none") +
+    christineTheme
+```
+
+# EK
+```{r}
+library(minpack.lm) # for nlsLM
+library(dplyr) # for filter
+library(ggplot2)
+source("nls_outlier_removal.r")
+
+# samples <- list("BH 13", "LI F5", "MO S3", "TB 2", "W7") # trial representative samples
+samples <- levels(as.factor(rlc_metrics$SampleName)) # all samples
+outputs <- NULL
+for (sample_name in samples) {
+    print(sample_name)
+    sample_data <- filter(rlc_metrics, SampleName == sample_name)
+
+    # Create the plot
+    #################
+    plot <- ggplot(sample_data, aes(Temperature, Ek)) +
+        geom_point() +
+        christineTheme +
+        coord_cartesian(
+            xlim = c(min(sample_data$Temperature), max(sample_data$Temperature)),
+            ylim = c(min(sample_data$Ek), max(sample_data$Ek))
+        ) +
+        labs(
+            x = "Temperature (ºC)", y = "Ek",
+            title = sample_name
+        )
+
+    #######
+    # Fit #
+    #######
+
+    initial <- sample_data[1, "Ek"]
+
+    fit_data <- function(data) {
+        nlsLM(
+            Ek ~ I - exp(-S + k * Temperature),
+            data = data,
+            start = list(I = initial, S = 15, k = 0.7),
+            control = nls.lm.control(maxiter = 500)
+        )
+    }
+
+    fit <- tryCatch(
+        {
+            nls_outlier_removal(
+                sample_data,
+                fit_data = fit_data
+            )
+        },
+        error = message
+    )
+
+    # skip the rest if we couldn't fit
+    if (is.null(fit)) {
+        suppressMessages(ggsave(paste0("Thermal Curves/Ek/plots/failed/", sample_name, ".png"), plot))
+        next # go on to the next sample
+    }
+
+    outliers <- fit$outliers
+    fit <- fit$fit
+
+    # plot them to see what's being removed
+    if (length(outliers)) {
+        plot <- plot +
+            geom_point(data = outliers, aes(x = Temperature, y = Ek), colour = "red", pch = 1, size = 3)
+    }
+
+
+
+    #################
+    # Output Params #
+    #################
+
+    S <- coef(fit)[["S"]]
+    k <- coef(fit)[["k"]]
+    I <- coef(fit)[["I"]]
+    output_for_this_sample <- data.frame(
+        SampleName = sample_name,
+        Group = sample_data$Group[1],
+        S = S,
+        k = k,
+        I = I,
+        AIC = AIC(fit),
+        RSS = deviance(fit)
+    )
+    outputs <- rbind(outputs, output_for_this_sample)
+
+    ########
+    # Plot #
+    ########
+
+    new_data <- data.frame(Temperature = seq(min(sample_data$Temperature) - 10, max(sample_data$Temperature) + 10, 0.2))
+    predictions <- augment(fit, newdata = new_data)
+
+    # Add fitted data to plot
+    plot <- plot +
+        geom_line(aes(Temperature, .fitted), predictions, col = "blue") +
+        labs(
+            # subtitle = paste("AIC", AIC(fit)),
+            caption = paste("a:", a, "r:", r)
+        )
+
+    # print(plot)
+    suppressMessages(ggsave(paste0("Thermal Curves/Ek/plots/", sample_name, "-exp.png"), plot))
+}
+
+
+write.csv(outputs, "Thermal Curves/Ek/exponential raw output.csv")
+```
+
