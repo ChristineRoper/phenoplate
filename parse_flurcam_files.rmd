@@ -1,12 +1,13 @@
-Reads all Fluorcam files (T1, T2, T2) and creates a data frame with cols: 
-SampleName, Well, Reef, Site, Habitat, Pale, Group, Temperature, plus all metrics of interest indicated below
+Reads all Fluorcam files (T1, T2, T2) and creates a data frame with one row per measurement
+Input: Sample List.csv (SampleID, Folder, FirstArea, LastArea, Temp1, Temp2, Temp3, Temp4, Temp5, Temp6, ...)
+If the column "Folder" is blank, that sample is skipped
+columns from 11 onwards are not used but will be included in the output
 
-
-# Metrics of interest
+# Metrics of interest from each timepoint file
 ```{r}
 t1_metrics <- c("Fm")
 t2_metrics <- c(
-    paste0("PAR", seq(1:15)),
+    paste0("PAR", seq(1:15)), # Equivelent to writing PAR1, PAR2, ... PAR15
     paste0("ETR", seq(1:15)),
     paste0("QY_Lss", seq(1:15)),
     paste0("NPQ_Lss", seq(1:15))
@@ -18,13 +19,11 @@ t3_metrics <- c("Fv/Fm_Lss1", "Fm", "QY_max")
 ```{r}
 library(dplyr)
 
-sample_list <- read.csv("Sample list.csv", header = TRUE, colClasses = c(
-    "numeric", "numeric", "character", "character",
-    "factor", "factor", "factor", "factor", "factor", "factor", "factor", "factor",
-    "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
-))
+sample_list <- read.csv("Sample list.csv", header = TRUE)
+sample_list$SampleID <- as.factor(sample_list$SampleID)
+sample_list$Folder <- as.factor(sample_list$Folder)
 
-
+# blank variable to add each row to
 data <- NULL
 
 # go through each folder that data is stored in
@@ -46,24 +45,19 @@ for (folder in levels(sample_list$Folder)) {
         sample <- samples[row_number, ]
 
         # Create a row for this sample
-        new_row <- data.frame(
-            SampleName = sample$SampleName,
-            Reef = as.character(sample$Reef),
-            Site = as.character(sample$Site),
-            Habitat = as.character(sample$Habitat),
-            Pale = sample$HealthScore != "N/A",
-            Group = as.character(sample$Group)
-        )
+        new_row <- data.frame(SampleID = sample$SampleID)
 
-        # split values like "1-6" into 1 and 6
-        wells <- as.numeric(strsplit(as.character(sample$Wells), split = "-")[[1]])
-        for (well_number in wells[1]:wells[2]) {
-            # columns are named "Area.<well_number>"
-            column_name <- paste0("Area.", well_number)
+        # Add any extra columns that were in the input file (after the first 11)
+        new_row <- cbind(new_row, sample[, 11:ncol(sample)])
 
-            new_row$Well <- well_number - wells[1] + 1
+        for (area_number in sample$FirstArea:sample$LastArea) {
+            # columns are named "Area <area_number>"
+            column_name <- paste("Area", area_number)
 
-            temp_name <- paste0("Temp", new_row$Well)
+            new_row$Area <- area_number - sample$FirstArea + 1
+
+            # temperature columns are named "Temp<temp_name>"
+            temp_name <- paste0("Temp", new_row$Area)
             new_row$Temperature <- sample[, temp_name]
 
             # create a function to add metrics to 'data' that can be used multiple times
@@ -71,7 +65,7 @@ for (folder in levels(sample_list$Folder)) {
                 # for each metric that we're interested in
                 for (metric in metrics) {
                     # Get the row for this metric from the TXT file
-                    metric_data <- filter(file, X == metric)
+                    metric_data <- filter(file, across(1) == metric)
 
                     if (nrow(metric_data) == 0) {
                         stop(paste("There is no", metric, "in", folder, timepoint))
