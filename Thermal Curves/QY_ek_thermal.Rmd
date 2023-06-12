@@ -106,9 +106,7 @@ for (sample_name in samples) {
         Group = sample_data$Group[1],
         S = S,
         k = k,
-        I = I,
-        AIC = AIC(fit),
-        RSS = deviance(fit)
+        I = I
     )
     outputs <- rbind(outputs, output_for_this_sample)
 
