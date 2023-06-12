@@ -1,5 +1,5 @@
 ```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = '~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis')
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
 ```
 
 ```{r}
@@ -19,7 +19,7 @@ rlc_metrics <- read.csv("Rapid Light Curves/rlc_qy_metrics_webb.csv", header = T
 
 have a look
 ```{R}
-ggplot(rlc_metrics, aes(x = Ek, y = qy_ek, col = Well)) +
+ggplot(rlc_metrics, aes(x = Ek, y = qy_ek, col = Area)) +
     scale_y_log10() +
     scale_x_log10() +
     geom_point() +
@@ -52,12 +52,14 @@ for (sample_name in samples) {
 
     if (sample_data[sample_data$Well == 6, "qy_ek"] > sample_data[sample_data$Well == 5, "qy_ek"]) {
         sample_data[sample_data$Well == 6, "qy_ek"] <- NA
-    }else if (sample_data[sample_data$Well == 6, "qy_ek"] > sample_data[sample_data$Well == 4, "qy_ek"]) {
+    } else if (sample_data[sample_data$Well == 6, "qy_ek"] > sample_data[sample_data$Well == 4, "qy_ek"]) {
         sample_data[sample_data$Well == 6, "qy_ek"] <- NA
     }
     if (sample_data[sample_data$Well == 5, "qy_ek"] > sample_data[sample_data$Well == 4, "qy_ek"]) {
         sample_data[sample_data$Well == 5, "qy_ek"] <- NA
     }
+    # a copy before setting some to NA below
+    all_points <- sample_data
 
     # plot data and model fit
     plot <- ggplot(sample_data, aes(Temperature, qy_ek)) +
@@ -116,13 +118,11 @@ for (sample_name in samples) {
 
     new_data <- data.frame(Temperature = seq(1, 40, 0.2))
     predictions <- augment(fit, newdata = new_data)
-    
-    data_range = filter(sample_data, !is.na(qy_ek))$qy_ek
 
     # plot data and model fit
     plot <- plot +
         geom_line(aes(Temperature, .fitted), predictions, col = "blue") +
-        coord_cartesian(xlim = c(23, 41), ylim = c(min(data_range), max(data_range)))
+        coord_cartesian(xlim = c(23, 41), ylim = c(min(rlc_metrics$qy_ek), max(rlc_metrics$qy_ek)))
 
     suppressMessages(ggsave(paste0("Thermal Curves/QY_ek/plots/", sample_name, ".png"), plot))
 }
