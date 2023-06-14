@@ -38,7 +38,7 @@ ggplot(rlc_metrics, aes(x = as.numeric(Well), y = qy_ek, col = SampleName)) +
 ```{r}
 library(minpack.lm) # for nlsLM
 
-samples <- list("W7", "LI F5", "MO S3", "TB 2") # trial representative samples
+#samples <- list("W7", "LI F5", "MO S3", "TB 2") # trial representative samples
 samples <- levels(as.factor(rlc_metrics$SampleName)) # all samples
 outputs <- NULL
 
@@ -114,13 +114,15 @@ for (sample_name in samples) {
     # Plot #
     ########
 
-    new_data <- data.frame(Temperature = seq(1, 40, 0.2))
+    new_data <- data.frame(Temperature = seq(1, 45, 0.2))
     predictions <- augment(fit, newdata = new_data)
 
     # plot data and model fit
     plot <- plot +
         geom_line(aes(Temperature, .fitted), predictions, col = "blue") +
-        coord_cartesian(xlim = c(23, 41), ylim = c(min(rlc_metrics$qy_ek), max(rlc_metrics$qy_ek)))
+        coord_cartesian(xlim = c(23, 42), 
+                        ylim = c(0.1, 0.51))
+                        #ylim = c(min(rlc_metrics$qy_ek), max(rlc_metrics$qy_ek)))
 
     suppressMessages(ggsave(paste0("Thermal Curves/QY_ek/plots/", sample_name, ".png"), plot))
 }

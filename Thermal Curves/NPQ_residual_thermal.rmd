@@ -34,7 +34,7 @@ printOnTop <- function(...values) {
     cat("\33[2K\r", ...values)
 }
 
-# samples <- list("BH 13") # ,"BH 13", "LI F5", "MO S3", "TB 2", "W7") # trial representative samples
+#samples <- list("BH 13") # ,"BH 13", "LI F5", "MO S3", "TB 2", "W7") # trial representative samples
 samples <- levels(as.factor(data$SampleName)) # all samples
 outputs <- NULL
 for (sample_name in samples) {
@@ -112,6 +112,10 @@ for (sample_name in samples) {
         labs(
           #subtitle = paste("AIC", AIC(fit)),
           caption = paste("a:", a, "r:", r)
+        ) +
+        coord_cartesian(
+          ylim = c(min(data$NPQ_residual), max(data$NPQ_residual)),
+          xlim = c(min(sample_data$Temperature), max(sample_data$Temperature ))
         )
 
     # print(plot)
@@ -119,6 +123,6 @@ for (sample_name in samples) {
 }
 
 
-write.csv(outputs, "Thermal Curves/NPQ_residual/exponential raw output.csv")
+#write.csv(outputs, "Thermal Curves/NPQ_residual/exponential raw output.csv")
 ```
 
