@@ -3,6 +3,14 @@ Input: Sample List.csv (SampleID, Folder, FirstArea, LastArea, Temp1, Temp2, Tem
 If the column "Folder" is blank, that sample is skipped
 columns from 11 onwards are not used but will be included in the output
 
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+sample_list <- "Sample list.csv"
+output <- "fluorcam_data.csv"
+# Where are the flourcam files relative to working directory
+flourcam_files <- ".." # no trailing slash
+```
+
 # Metrics of interest from each timepoint file
 ```{r}
 t1_metrics <- c("Fm")
@@ -19,7 +27,7 @@ t3_metrics <- c("Fv/Fm_Lss1", "Fm", "QY_max")
 ```{r}
 library(dplyr)
 
-sample_list <- read.csv("Sample list.csv", header = TRUE)
+sample_list <- read.csv(sample_list, header = TRUE)
 sample_list$SampleID <- as.factor(sample_list$SampleID)
 sample_list$Folder <- as.factor(sample_list$Folder)
 
@@ -32,9 +40,9 @@ for (folder in levels(sample_list$Folder)) {
     if (folder == "") next
 
     # Load the TXT files
-    t1 <- read.table(paste("..", folder, "T1.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
-    t2 <- read.table(paste("..", folder, "T2.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
-    t3 <- read.table(paste("..", folder, "T3.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
+    t1 <- read.table(paste(flourcam_files, folder, "T1.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
+    t2 <- read.table(paste(flourcam_files, folder, "T2.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
+    t3 <- read.table(paste(flourcam_files, folder, "T3.TXT", sep = "/"), header = TRUE, sep = "\t", skip = 2)
 
     # get the samples in this folder
     samples <- filter(sample_list, Folder == folder)
@@ -52,7 +60,7 @@ for (folder in levels(sample_list$Folder)) {
 
         for (area_number in sample$FirstArea:sample$LastArea) {
             # columns are named "Area <area_number>"
-            column_name <- paste("Area", area_number)
+            column_name <- paste0("Area.", area_number)
 
             new_row$Area <- area_number - sample$FirstArea + 1
 
@@ -73,7 +81,7 @@ for (folder in levels(sample_list$Folder)) {
 
                     # set this metric's values in the new row
                     metric_name <- paste(timepoint, metric, sep = "_")
-                    new_row[, metric_name] <<- metric_data[, column_name]
+                    new_row[1, metric_name] <<- metric_data[, column_name]
                 }
             }
 
@@ -88,5 +96,5 @@ for (folder in levels(sample_list$Folder)) {
 }
 
 # View(data)
-write.csv(data, "fluorcam_data.csv")
+write.csv(data, output)
 ```

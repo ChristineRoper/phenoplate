@@ -1,5 +1,9 @@
 ```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = '~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis')
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+
+input <- "fluorcam_data.csv"
+output <- "Thermal Curves/NPQ_residual/exponential raw output.csv"
+plots <- "Thermal Curves/NPQ_residual/plots/"
 ```
 
 ```{r}
@@ -10,7 +14,7 @@ source("christineTheme.r")
 
 # Load Data
 ```{r}
-data <- read.csv("fluorcam_data.csv", header = TRUE, colClasses = c(
+data <- read.csv(input, header = TRUE, colClasses = c(
     "character",
     "factor", "factor", "factor", "factor", "factor", "factor", "factor", "numeric", "numeric",
     rep("numeric", 15),
@@ -34,12 +38,12 @@ printOnTop <- function(...values) {
     cat("\33[2K\r", ...values)
 }
 
-#samples <- list("BH 13") # ,"BH 13", "LI F5", "MO S3", "TB 2", "W7") # trial representative samples
-samples <- levels(as.factor(data$SampleName)) # all samples
+# samples <- list("BH 13") # ,"BH 13", "LI F5", "MO S3", "TB 2", "W7") # trial representative samples
+samples <- levels(as.factor(data$SampleID)) # all samples
 outputs <- NULL
 for (sample_name in samples) {
     printOnTop(sample_name)
-    sample_data <- filter(data, SampleName == sample_name)
+    sample_data <- filter(data, SampleID == sample_name)
 
     # Create the plot
     #################
@@ -90,12 +94,12 @@ for (sample_name in samples) {
     a <- coef(fit)[["a"]]
     r <- coef(fit)[["r"]]
     output_for_this_sample <- data.frame(
-        SampleName = sample_name,
+        SampleID = sample_name,
         Group = sample_data$Group[1],
         a = a,
         r = r
-        #AIC = AIC(fit),
-        #RSS = deviance(fit)
+        # AIC = AIC(fit),
+        # RSS = deviance(fit)
     )
     outputs <- rbind(outputs, output_for_this_sample)
 
@@ -110,19 +114,19 @@ for (sample_name in samples) {
     plot <- plot +
         geom_line(aes(Temperature, .fitted), predictions, col = "blue") +
         labs(
-          #subtitle = paste("AIC", AIC(fit)),
-          caption = paste("a:", a, "r:", r)
+            # subtitle = paste("AIC", AIC(fit)),
+            caption = paste("a:", a, "r:", r)
         ) +
         coord_cartesian(
-          ylim = c(min(data$NPQ_residual), max(data$NPQ_residual)),
-          xlim = c(min(sample_data$Temperature), max(sample_data$Temperature ))
+            ylim = c(min(data$NPQ_residual), max(data$NPQ_residual)),
+            xlim = c(min(sample_data$Temperature), max(sample_data$Temperature))
         )
 
     # print(plot)
-    suppressMessages(ggsave(paste0("Thermal Curves/NPQ_residual/plots/", sample_name, "-exp.png"), plot))
+    suppressMessages(ggsave(paste0(plots, sample_name, "-exp.png"), plot))
 }
 
 
-#write.csv(outputs, "Thermal Curves/NPQ_residual/exponential raw output.csv")
+write.csv(outputs, output)
 ```
 

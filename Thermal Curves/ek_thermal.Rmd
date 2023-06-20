@@ -1,5 +1,9 @@
 ```{r, setup, include=FALSE}
 knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+
+input <- "Rapid Light Curves/rlc_qy_metrics_webb.csv"
+plots <- "Thermal Curves/Ek/plots/"
+output <- "Thermal Curves/Ek/exponential raw output.csv"
 ```
 
 ```{r}
@@ -10,7 +14,7 @@ source("christineTheme.r")
 
 # Load Data
 ```{r}
-rlc_metrics <- read.csv("Rapid Light Curves/rlc_qy_metrics_webb.csv", header = TRUE, colClasses = c(
+rlc_metrics <- read.csv(input, header = TRUE, colClasses = c(
     "character",
     "factor", "numeric", "factor", "factor", "factor", "factor", "factor", "factor",
     "numeric", "numeric", "numeric", "numeric", "numeric"
@@ -22,7 +26,7 @@ have a look
 library(httpgd)
 hgd()
 
-ggplot(rlc_metrics, aes(x = as.numeric(Well), y = Ek, col = SampleName)) +
+ggplot(rlc_metrics, aes(x = as.numeric(Area), y = Ek, col = SampleID)) +
     # scale_y_log10() +
     # coord_cartesian(ylim = c(0, 0.8)) +
     geom_line(alpha = 0.6) +
@@ -36,14 +40,14 @@ ggplot(rlc_metrics, aes(x = as.numeric(Well), y = Ek, col = SampleName)) +
 library(minpack.lm) # for nlsLM
 library(dplyr) # for filter
 library(ggplot2)
-source("nls_outlier_removal.r")
+source("utils/nls_outlier_removal.r")
 
 # samples <- list("BH 13", "LI F5", "MO S3", "TB 2", "W7") # trial representative samples
-samples <- levels(as.factor(rlc_metrics$SampleName)) # all samples
+samples <- levels(as.factor(rlc_metrics$SampleID)) # all samples
 outputs <- NULL
 for (sample_name in samples) {
     print(sample_name)
-    sample_data <- filter(rlc_metrics, SampleName == sample_name)
+    sample_data <- filter(rlc_metrics, SampleID == sample_name)
 
     # Create the plot
     #################
@@ -86,7 +90,7 @@ for (sample_name in samples) {
 
     # skip the rest if we couldn't fit
     if (is.null(fit)) {
-        suppressMessages(ggsave(paste0("Thermal Curves/Ek/plots/failed/", sample_name, ".png"), plot))
+        suppressMessages(ggsave(paste0(plots, "failed/", sample_name, ".png"), plot))
         next # go on to the next sample
     }
 
@@ -109,7 +113,7 @@ for (sample_name in samples) {
     k <- coef(fit)[["k"]]
     I <- coef(fit)[["I"]]
     output_for_this_sample <- data.frame(
-        SampleName = sample_name,
+        SampleID = sample_name,
         Group = sample_data$Group[1],
         S = S,
         k = k,
@@ -135,10 +139,10 @@ for (sample_name in samples) {
         )
 
     # print(plot)
-    suppressMessages(ggsave(paste0("Thermal Curves/Ek/plots/", sample_name, "-exp.png"), plot))
+    suppressMessages(ggsave(paste0(plots, sample_name, "-exp.png"), plot))
 }
 
 
-write.csv(outputs, "Thermal Curves/Ek/exponential raw output.csv")
+write.csv(outputs, output)
 ```
 

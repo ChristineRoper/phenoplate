@@ -1,14 +1,16 @@
 Processes the RLC part of the Fluorcam data with PI curves to extract Pmax, alpha, ek
-input: Rapid Light Curves/fluorcam_RLC_data.csv
-output: Rapid Light Curves/RLC_metrics.csv
 
 ```{r, setup, include=FALSE}
 knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+
+input <- "Rapid Light Curves/fluorcam_RLC_data.csv"
+output <- "Rapid Light Curves/rlc_qy_metrics_webb.csv"
+plots <- "Rapid Light Curves/QY/plots/"
 ```
 
 
 ```{r}
-rlc_data <- read.csv("Rapid Light Curves/fluorcam_RLC_data.csv", header = TRUE, colClasses = c(
+rlc_data <- read.csv(input, header = TRUE, colClasses = c(
     "character",
     "factor", "factor", "factor", "factor", "factor", "factor", "factor",
     "numeric", "numeric", "numeric", "numeric"
@@ -17,13 +19,13 @@ rlc_data <- read.csv("Rapid Light Curves/fluorcam_RLC_data.csv", header = TRUE, 
 
 ```{r}
 library(ggplot2)
-source("christineTheme.r")
+source("utils/christineTheme.r")
 ```
 
 ```{R}
 library(minpack.lm) # for nlsLM
 library(broom) # for augment
-source("nls_outlier_removal.r")
+source("utils/nls_outlier_removal.r")
 
 
 Webb_PI <- function(I, Pmax, alpha) {
@@ -52,7 +54,7 @@ Eilers_QY_PI <- function(QY_max, IoptExtra, Ek, I) {
 }
 
 
-sampleNames <- c(
+sampleIDs <- c(
     "LI F20",
     "LI F1",
     "LI F2",
@@ -67,9 +69,9 @@ sampleNames <- c(
     "BH 6",
     "TB 2"
 )
-sampleNames <- levels(as.factor(rlc_data$SampleName)) # all samples
+sampleIDs <- levels(as.factor(rlc_data$SampleID)) # all samples
 
-output <- NULL
+output_data <- NULL
 
 printOnTop <- function(...values) {
     cat("\33[2K\r", ...values)
@@ -77,13 +79,13 @@ printOnTop <- function(...values) {
 
 
 cat("\n")
-for (sample in sampleNames) {
+for (sample in sampleIDs) {
     printOnTop(sample)
 
     plot <- ggplot() + christineTheme
     fit_curves <- NULL
 
-    sampleData <- filter(rlc_data, SampleName == sample)
+    sampleData <- filter(rlc_data, SampleID == sample)
 
     # Ensure no QY is negative
     sampleData$QY <- pmax(sampleData$QY, 0)
@@ -141,11 +143,12 @@ for (sample in sampleNames) {
         QY_max <- coef(fit)[["QY_max"]]
 
 
-        output <- rbind(output, data.frame(
-            SampleName = sample,
+        output_data <- rbind(output_data, data.frame(
+            SampleID = sample,
+            # @todo make more generic
             Reef = as.character(areaData[1, "Reef"]),
             Habitat = as.character(areaData[1, "Habitat"]),
-            Pale = as.character(areaData[1, "Pale"]),
+            HealthScore = as.character(areaData[1, "HealthScore"]),
             Group = as.character(areaData[1, "Group"]),
             Temperature = areaData[1, "Temperature"],
             Site = as.character(areaData[1, "Site"]),
@@ -190,10 +193,10 @@ for (sample in sampleNames) {
         ggtitle(sample)
 
     # print(plot)
-    suppressMessages(ggsave(paste0("Rapid Light Curves/QY/plots/", sample, "Webb.png"), plot))
+    suppressMessages(ggsave(paste0(plots, sample, "Webb.png"), plot))
 }
 
 cat("\n")
 
-write.csv(output, "Rapid Light Curves/rlc_qy_metrics_webb.csv")
+write.csv(output_data, output)
 ```

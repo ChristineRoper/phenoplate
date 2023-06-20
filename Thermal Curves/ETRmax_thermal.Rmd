@@ -1,3 +1,10 @@
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+
+input <- "Rapid Light Curves/rlc_metrics.csv"
+plots <- "Thermal Curves/ETRmax/plots/"
+output <- "Thermal Curves/ETRmax/6 raw output.csv"
+```
 
 ```{r}
 library(dplyr)
@@ -7,7 +14,7 @@ source("../christineTheme.r")
 
 # Load Data
 ```{r}
-rlc_metrics <- read.csv("Rapid Light Curves/rlc_metrics.csv", header = TRUE, colClasses = c(
+rlc_metrics <- read.csv(input, header = TRUE, colClasses = c(
     "character",
     "factor", "numeric", "factor", "factor", "factor", "factor", "factor", "factor",
     "numeric", "numeric", "numeric", "numeric", "numeric", "numeric", "numeric"
@@ -16,7 +23,7 @@ rlc_metrics <- read.csv("Rapid Light Curves/rlc_metrics.csv", header = TRUE, col
 
 have a look
 ```{R}
-ggplot(rlc_metrics, aes(x = as.numeric(Well), y = Pmax, col = SampleName)) +
+ggplot(rlc_metrics, aes(x = as.numeric(Area), y = Pmax, col = SampleID)) +
     geom_line(alpha = 0.6) +
     geom_point() +
     theme(legend.position = "none") +
@@ -28,13 +35,13 @@ ggplot(rlc_metrics, aes(x = as.numeric(Well), y = Pmax, col = SampleName)) +
 library(nls.multstart)
 
 samples <- list("LI S27") # "MO S15", "W7", "LI F5", "MO S3", "TB 2") # trial representative samples
-samples <- levels(as.factor(rlc_metrics$SampleName)) # all samples
+samples <- levels(as.factor(rlc_metrics$SampleID)) # all samples
 outputs <- NULL
 failures <- 0
 for (sample_name in samples) {
     print(sample_name)
-    sample_data <- filter(rlc_metrics, SampleName == sample_name)
-    # sample_data <- filter(data, SampleName == sample_name, Well != 6) # remove last temperature due to extreme spike
+    sample_data <- filter(rlc_metrics, SampleID == sample_name)
+    # sample_data <- filter(data, SampleID == sample_name, Area != 6) # remove last temperature due to extreme spike
 
     #######
     # Fit #
@@ -75,7 +82,7 @@ for (sample_name in samples) {
         k <- coef(fit)[["k"]]
         I <- coef(fit)[["I"]]
         output_for_this_sample <- data.frame(
-            SampleName = sample_name,
+            SampleID = sample_name,
             Group = sample_data$Group[1],
             S = S,
             k = k,
@@ -85,7 +92,7 @@ for (sample_name in samples) {
         )
     } else {
         output_for_this_sample <- data.frame(
-            SampleName = sample_name,
+            SampleID = sample_name,
             Group = sample_data$Group[1],
             S = NA,
             k = NA,
@@ -130,10 +137,10 @@ for (sample_name in samples) {
 
 
     # print(plot)
-    ggsave(paste0("Thermal Curves/ETRmax/plots/", sample_name, "-6.png"), plot)
+    ggsave(paste0(plots, sample_name, "-6.png"), plot)
 }
 
 print(failures)
 
-write.csv(outputs, "Thermal Curves/ETRmax/6 raw output.csv")
+write.csv(outputs, output)
 ```

@@ -2,7 +2,7 @@ library(minpack.lm) # for nlsLM
 library(broom) # for augment
 library(dplyr) # for filter
 library(ggplot2) # for filter
-source("christineTheme.r")
+source("utils/christineTheme.r")
 
 fit_qy <- function(data, plot = FALSE) {
     #
@@ -51,7 +51,7 @@ fit_qy <- function(data, plot = FALSE) {
         new_data$QY <- predict(fit1, newdata = new_data)
 
         qy_plot <- qy_plot +
-            geom_line(data = new_data, mapping = aes(x = PAR, y = QY), alpha=0.1)
+            geom_line(data = new_data, mapping = aes(x = PAR, y = QY), alpha = 0.1)
 
         new_data <- data.frame(PAR = seq(min(data$PAR), max(data$PAR), 1))
         new_data$QY <- predict(fit2, newdata = new_data)
