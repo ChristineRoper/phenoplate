@@ -1,11 +1,11 @@
 Processes the RLC part of the Fluorcam data with PI curves to extract Pmax, alpha, ek
 
 ```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
 
-input <- "Rapid Light Curves/fluorcam_RLC_data.csv"
-output <- "Rapid Light Curves/rlc_qy_metrics_webb.csv"
-plots <- "Rapid Light Curves/QY/plots/"
+input <- "2. Rapid Light Curves/fluorcam_RLC_data.csv"
+output <- "2. Rapid Light Curves/rlc_qy_metrics_webb.csv"
+plots <- "2. Rapid Light Curves/QY/plots/"
 ```
 
 

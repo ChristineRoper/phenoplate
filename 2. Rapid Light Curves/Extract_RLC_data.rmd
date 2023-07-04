@@ -1,11 +1,11 @@
-fluorcam_data from parse_flurcam_files.rmd and creates a data frame with cols: 
-SampleName, Well, Reef, Site, Habitat, Pale, Group, Temperature, PAR, ETR, QY
+fluorcam_data from extract_fluorcam_data.rmd and creates a data frame with cols: 
+SampleID, Area, Reef, Site, Habitat, Pale, Group, Temperature, PAR, ETR, QY
 
 ```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
 
-fluorcam_data <- "fluorcam_data.csv"
-output <- "Rapid Light Curves/fluorcam_RLC_data.csv"
+fluorcam_data <- "1. Fluorcam data/fluorcam_data.csv"
+output <- "2. Rapid Light Curves/fluorcam_RLC_data.csv"
 ```
 
 ```{r}

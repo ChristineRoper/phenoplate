@@ -4,9 +4,9 @@ If the column "Folder" is blank, that sample is skipped
 columns from 11 onwards are not used but will be included in the output
 
 ```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
-sample_list <- "Sample list.csv"
-output <- "fluorcam_data.csv"
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
+sample_list <- "1. Fluorcam data/Sample list.csv"
+output <- "1. Fluorcam data/fluorcam_data.csv"
 # Where are the flourcam files relative to working directory
 flourcam_files <- ".." # no trailing slash
 ```
