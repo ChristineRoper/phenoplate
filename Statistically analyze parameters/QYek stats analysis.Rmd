@@ -8,7 +8,7 @@ output: html_document
 ```{r}
 library(dplyr)
 
-setwd("~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+setwd("~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
 QY_parameters <- read.csv("Thermal Curves/QY_ek/inverted exponential.csv", header = TRUE, stringsAsFactors = TRUE)
 # Only the cols we care about
 QY_parameters <- QY_parameters[, c(2, 3, 4, 5, 6)]

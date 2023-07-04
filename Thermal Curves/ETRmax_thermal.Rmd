@@ -1,5 +1,5 @@
 ```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
 
 input <- "Rapid Light Curves/rlc_metrics.csv"
 plots <- "Thermal Curves/ETRmax/plots/"
@@ -9,7 +9,7 @@ output <- "Thermal Curves/ETRmax/6 raw output.csv"
 ```{r}
 library(dplyr)
 library(broom)
-source("../christineTheme.r")
+source("christineTheme.r")
 ```
 
 # Load Data
