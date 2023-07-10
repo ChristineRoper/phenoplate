@@ -4,7 +4,7 @@ output: Rapid Light Curves/RLC_metrics.csv
 
 
 ```{r}
-rlc_data <- read.csv("Rapid Light Curves/fluorcam_RLC_data.csv", header = TRUE, colClasses = c(
+rlc_data <- read.csv("2. Rapid Light Curves/fluorcam_RLC_data.csv", header = TRUE, colClasses = c(
     "character", "factor", "factor", "factor", "factor", "factor", "factor", "factor", "numeric", "numeric", "numeric", "numeric"
 ))
 ```
@@ -21,7 +21,7 @@ source("christineTheme.r")
 ```{R}
 library(minpack.lm) # for nlsLM
 library(broom) # for augment
-source("Rapid Light Curves/get_qy_ek.r") # for get_qy_ek
+# source("Rapid Light Curves/get_qy_ek.r") # for get_qy_ek
 
 Eilers_PI <- function(Pmax, Iopt, a, I) {
     pi <- (Pmax * I) / ((Pmax / (a * Iopt^2)) * I^2 + ((1 - (2 * Pmax) / (a * Iopt)) * I) + (Pmax / a))
@@ -36,7 +36,7 @@ Eilers_PI_x <- function(Pmax, a, I) {
     return(pi)
 }
 
-sampleNames <- c(
+sampleID <- c(
     "LI F20",
     "LI F1",
     "LI F2",
@@ -51,40 +51,34 @@ sampleNames <- c(
     "BH 6",
     "TB 2"
 )
-sampleNames <- levels(as.factor(rlc_data$SampleName)) # all samples
+sampleIDs <- levels(as.factor(rlc_data$SampleID)) # all samples
 
 output <- NULL
 
 rlc_data$ETR_fit <- NA
 
-progress <- txtProgressBar(
-    min = 0,
-    max = length(sampleNames),
-    style = 3
-)
+for (sample in sampleIDs) {
+    cat(sample, "\n")
 
-for (sample in sampleNames) {
-    # cat(sample, "\n")
+    plot <- ggplot() #+ christineTheme
 
-    plot <- ggplot() + christineTheme
-
-    sampleData <- filter(rlc_data, SampleName == sample)
+    sampleData <- filter(rlc_data, SampleID == sample)
 
     # ensure there are no negative ETRs
     sampleData$ETR <- pmax(0, sampleData$ETR)
 
-    for (well in 1:6) {
-        # cat("well ", well, "\n")
-        wellData <- filter(sampleData, Well == well)
+    for (area in 1:6) {
+        cat("area ", area, "\n")
+        areaData <- filter(sampleData, Area == area)
 
-        simpleMax <- max(wellData$ETR)
+        simpleMax <- max(areaData$ETR)
 
         # cat("fit 1 \n")
         # Fit Eilers
         ###########
         fit <- nlsLM(
             ETR ~ Eilers_PI(Pmax, Iopt, a, PAR),
-            data = wellData,
+            data = areaData,
             start = list(Pmax = simpleMax, a = 0.2, Iopt = 1000),
             lower = c(0, 0, 0),
             upper = c(simpleMax * 1.2, 3, 5000),
@@ -101,7 +95,7 @@ for (sample in sampleNames) {
             # cat("ek > Iopt fit 1 \n")
             fit <- nlsLM(
                 ETR ~ Eilers_PI_x(Pmax, a, PAR),
-                data = wellData,
+                data = areaData,
                 start = list(Pmax = simpleMax, a = 2),
                 lower = c(0, 0),
                 upper = c(simpleMax * 1.2, 3),
@@ -124,13 +118,13 @@ for (sample in sampleNames) {
             plot <- plot +
                 geom_point(data = outliers, aes(x = PAR, y = ETR), colour = "red", pch = 4)
 
-            wellData2 <- filter(wellData, !PAR %in% outliers$PAR)
+            areaData2 <- filter(areaData, !PAR %in% outliers$PAR)
 
 
             # cat("fit 2 \n")
             fit <- nlsLM(
                 ETR ~ Eilers_PI(Pmax, Iopt, a, PAR),
-                data = wellData2,
+                data = areaData2,
                 start = list(Pmax = simpleMax, a = 0.2, Iopt = 1000),
                 lower = c(0, 0, 0),
                 upper = c(simpleMax * 1.2, 3, 5000),
@@ -143,7 +137,7 @@ for (sample in sampleNames) {
             alpha <- coef(fit)[["a"]]
             ek <- Pmax / alpha
 
-            if (all(wellData2$ETR == 0)) {
+            if (all(areaData2$ETR == 0)) {
                 Pmax <- 0
                 Iopt <- 0
                 alpha <- 1
@@ -153,7 +147,7 @@ for (sample in sampleNames) {
 
                 fit <- nlsLM(
                     ETR ~ Eilers_PI_x(Pmax, a, PAR),
-                    data = wellData2,
+                    data = areaData2,
                     start = list(Pmax = simpleMax, a = 2),
                     lower = c(0, 0),
                     upper = c(simpleMax * 1.2, 3),
@@ -170,25 +164,25 @@ for (sample in sampleNames) {
 
 
         output <- rbind(output, data.frame(
-            SampleName = sample,
-            Temperature = wellData[1, "Temperature"],
-            Reef = as.character(wellData[1, "Reef"]),
-            Site = as.character(wellData[1, "Site"]),
-            Habitat = as.character(wellData[1, "Habitat"]),
-            Pale = as.character(wellData[1, "Pale"]),
-            Group = as.character(wellData[1, "Group"]),
-            Well = well,
+            SampleID = sample,
+            Temperature = areaData[1, "Temperature"],
+            Reef = as.character(areaData[1, "Reef"]),
+            Site = as.character(areaData[1, "Site"]),
+            Habitat = as.character(areaData[1, "Habitat"]),
+            # Pale = as.character(areaData[1, "Pale"]),
+            Group = as.character(areaData[1, "Group"]),
+            Area = area,
             Pmax = Pmax,
             alpha = alpha,
             ek = ek,
             Iopt = Iopt,
-            qy_ek = get_qy_ek(wellData, ek),
+            # qy_ek = get_qy_ek(areaData, ek),
             AIC = AIC(fit),
             outliersRemoved = nrow(outliers)
         ))
 
-        pars <- sampleData[sampleData$Well == well, ]$PAR
-        sampleData[sampleData$Well == well, "ETR_fit"] <- Eilers_PI(Pmax, Iopt, alpha, pars)
+        pars <- sampleData[sampleData$Area == area, ]$PAR
+        sampleData[sampleData$Area == area, "ETR_fit"] <- Eilers_PI(Pmax, Iopt, alpha, pars)
 
         plot <- plot +
             geom_hline(yintercept = Pmax, color = "grey", linetype = "dotted") +
@@ -201,18 +195,15 @@ for (sample in sampleNames) {
     # plot
     plot <- plot +
         # Data
-        geom_line(data = sampleData, mapping = aes(x = PAR, y = ETR, col = Well), linetype = 2) +
+        geom_line(data = sampleData, mapping = aes(x = PAR, y = ETR, col = Area), linetype = 2) +
         # Fit 1
-        geom_line(data = sampleData, mapping = aes(x = PAR, y = ETR_fit, col = Well), linetype = 1) +
+        geom_line(data = sampleData, mapping = aes(x = PAR, y = ETR_fit, col = Area), linetype = 1) +
         coord_cartesian(xlim = c(0, 1750), ylim = c(0, max(sampleData$ETR))) +
         ggtitle(sample)
 
     # print(plot)
-    suppressMessages(ggsave(paste0("Rapid Light Curves/plots/", sample, ".png"), plot))
-
-    setTxtProgressBar(progress, getTxtProgressBar(progress) + 1)
+    # suppressMessages(ggsave(paste0("Rapid Light Curves/plots/", sample, ".png"), plot))
 }
-close(progress)
 
-write.csv(output, "Rapid Light Curves/rlc_metrics.csv")
+write.csv(output, "2. Rapid Light Curves/rlc_metrics_etr.csv")
 ```
