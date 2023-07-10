@@ -1,46 +1,29 @@
-```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+input <- "2. Rapid Light Curves/outputs/rlc_qy_metrics_webb.csv"
+plots <- "3. Thermal Curves/outputs/Ek/polynomial/plots/"
+output <- "3. Thermal Curves/outputs/Ek/polynomial/exponential raw output.csv"
 
-input <- "Rapid Light Curves/rlc_qy_metrics_webb.csv"
-plots <- "Thermal Curves/Ek/polynomial/plots/"
-output <- "Thermal Curves/Ek/polynomial/exponential raw output.csv"
-```
-
-```{r}
 library(dplyr)
 library(broom)
-source("utils/christineTheme.r")
-```
+source("utils/default_theme.r")
 
 # Load Data
-```{r}
-rlc_metrics <- read.csv(input, header = TRUE, colClasses = c(
-    "character",
-    "factor", "numeric", "factor", "factor", "factor", "factor", "factor", "factor",
-    "numeric", "numeric", "numeric", "numeric", "numeric"
-))
-```
+rlc_metrics <- read.csv(input, header = TRUE)
 
-have a look
-```{R}
+# have a look
 ggplot(rlc_metrics, aes(x = as.numeric(Area), y = Ek, col = SampleID)) +
     # scale_y_log10() +
     # coord_cartesian(ylim = c(0, 0.8)) +
     geom_line(alpha = 0.6) +
     geom_point() +
     theme(legend.position = "none") +
-    christineTheme
-```
+    default_theme
 
 # EK
-```{r}
 library(minpack.lm) # for nlsLM
 library(dplyr) # for filter
 library(ggplot2)
 source("utils/nls_outlier_removal.r")
 
-
-samples <- list("BH 13", "LI F5", "MO S3", "TB 2", "W7") # trial representative samples
 samples <- levels(as.factor(rlc_metrics$SampleID)) # all samples
 outputs <- NULL
 for (sample_name in samples) {
@@ -51,7 +34,7 @@ for (sample_name in samples) {
     #################
     plot <- ggplot(sample_data, aes(Temperature, Ek)) +
         geom_point() +
-        christineTheme +
+        default_theme +
         coord_cartesian(
             xlim = c(min(sample_data$Temperature), max(sample_data$Temperature)),
             ylim = c(min(sample_data$Ek), max(sample_data$Ek))
@@ -110,13 +93,16 @@ for (sample_name in samples) {
     c <- coef(fit)[["c"]]
     output_for_this_sample <- data.frame(
         SampleID = sample_name,
-        Group = sample_data$Group[1],
         a = a,
         b = b,
         c = c,
         AIC = AIC(fit),
         RSS = deviance(fit)
     )
+
+    # add extra cols
+    output_for_this_sample <- cbind(output_for_this_sample, sample_data[1, -seq(1, 9)])
+
     outputs <- rbind(outputs, output_for_this_sample)
 
     ########
@@ -140,5 +126,3 @@ for (sample_name in samples) {
 
 
 write.csv(outputs, output)
-```
-

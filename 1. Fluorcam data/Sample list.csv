@@ -1,0 +1,9 @@
+SampleID,Folder,FirstArea,LastArea,Temp1,Temp2,Temp3,Temp4,Temp5,Temp6,ExtraData1,ExtraData2
+S1,Example Run 1,1,6,24.1,25.6,29.2,33.5,37.6,40.2,extra1,group1
+S2,Example Run 1,7,12,24.1,25.6,29.2,33.5,37.6,40.2,extra1,group1
+S3,Example Run 1,13,18,24.1,25.6,29.2,33.5,37.6,40.2,extra2,group1
+S4,Example Run 1,19,24,24.1,25.6,29.2,33.5,37.6,40.2,extra2,group1
+S5,Example Run 2,1,6,24.1,25.6,29.2,33.5,37.6,40.2,extra3,group1
+S6,Example Run 2,7,12,24.1,25.6,29.2,33.5,37.6,40.2,extra3,group1
+S7,Example Run 2,13,18,24.1,25.6,29.2,33.5,37.6,40.2,extra4,group1
+S8,Example Run 2,19,24,24.1,25.6,29.2,33.5,37.6,40.2,extra4,group1

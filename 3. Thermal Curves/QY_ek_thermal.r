@@ -1,43 +1,32 @@
-```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
+input <- "2. Rapid Light Curves/outputs/rlc_qy_metrics_webb.csv"
+output <- "3. Thermal Curves/outputs/QY_ek/inverted exponential.csv"
+plots <- "3. Thermal Curves/outputs/QY_ek/plots/"
 
-input <- "Rapid Light Curves/rlc_qy_metrics_webb.csv"
-output <- "Thermal Curves/QY_max/inverted exponential.csv"
-plots <- "Thermal Curves/QY_max/plots/"
-```
-
-```{r}
 library(dplyr)
 library(broom)
-source("utils/christineTheme.r")
-```
+source("utils/default_theme.r")
 
 # Load Data
-```{r}
 rlc_metrics <- read.csv(input, header = TRUE)
 rlc_metrics$SampleID <- as.factor(rlc_metrics$SampleID)
 rlc_metrics$Area <- as.factor(rlc_metrics$Area)
-```
 
-have a look
-```{R}
-ggplot(rlc_metrics, aes(x = Ek, y = QY_max, col = Area)) +
+# have a look
+ggplot(rlc_metrics, aes(x = Ek, y = qy_ek, col = Area)) +
     scale_y_log10() +
     scale_x_log10() +
     geom_point() +
-    christineTheme
+    default_theme
 
-ggplot(rlc_metrics, aes(x = as.numeric(Area), y = QY_max, col = SampleID)) +
+ggplot(rlc_metrics, aes(x = as.numeric(Area), y = qy_ek, col = SampleID)) +
     # scale_y_log10() +
     coord_cartesian(ylim = c(0, 0.8)) +
     geom_line(alpha = 0.6) +
     geom_point() +
     theme(legend.position = "none") +
-    christineTheme
-```
+    default_theme
 
-# Output QY_max
-```{r}
+# Output QY_EK
 library(minpack.lm) # for nlsLM
 
 # samples <- list("W7", "LI F5", "MO S3", "TB 2") # trial representative samples
@@ -52,21 +41,21 @@ for (sample_name in samples) {
     printOnTop(sample_name)
     sample_data <- filter(rlc_metrics, SampleID == sample_name)
 
-    if (sample_data[sample_data$Area == 6, "QY_max"] > sample_data[sample_data$Area == 5, "QY_max"]) {
-        sample_data[sample_data$Area == 6, "QY_max"] <- NA
-    } else if (sample_data[sample_data$Area == 6, "QY_max"] > sample_data[sample_data$Area == 4, "QY_max"]) {
-        sample_data[sample_data$Area == 6, "QY_max"] <- NA
+    if (sample_data[sample_data$Area == 6, "qy_ek"] > sample_data[sample_data$Area == 5, "qy_ek"]) {
+        sample_data[sample_data$Area == 6, "qy_ek"] <- NA
+    } else if (sample_data[sample_data$Area == 6, "qy_ek"] > sample_data[sample_data$Area == 4, "qy_ek"]) {
+        sample_data[sample_data$Area == 6, "qy_ek"] <- NA
     }
-    if (sample_data[sample_data$Area == 5, "QY_max"] > sample_data[sample_data$Area == 4, "QY_max"]) {
-        sample_data[sample_data$Area == 5, "QY_max"] <- NA
+    if (sample_data[sample_data$Area == 5, "qy_ek"] > sample_data[sample_data$Area == 4, "qy_ek"]) {
+        sample_data[sample_data$Area == 5, "qy_ek"] <- NA
     }
     # a copy before setting some to NA below
     all_points <- sample_data
 
     # plot data and model fit
-    plot <- ggplot(sample_data, aes(Temperature, QY_max)) +
+    plot <- ggplot(sample_data, aes(Temperature, qy_ek)) +
         geom_point() +
-        christineTheme +
+        default_theme +
         labs(
             x = "Temperature (ºC)", y = "QY EK",
             title = sample_name
@@ -76,12 +65,12 @@ for (sample_name in samples) {
     # Fit #
     #######
 
-    initial <- sample_data[1, "QY_max"]
+    initial <- sample_data[1, "qy_ek"]
 
     fit <- tryCatch(
         {
             nlsLM(
-                QY_max ~ I - exp(-S + k * Temperature),
+                qy_ek ~ I - exp(-S + k * Temperature),
                 data = sample_data,
                 start = list(I = initial, S = 10, k = 1), # suggested start values the make sense with my data
                 control = nls.control(maxiter = 500) # tries 500 values to find the best fit
@@ -105,11 +94,14 @@ for (sample_name in samples) {
     I <- coef(fit)[["I"]]
     output_for_this_sample <- data.frame(
         SampleID = sample_name,
-        Group = sample_data$Group[1],
         S = S,
         k = k,
         I = I
     )
+
+    # add extra cols
+    output_for_this_sample <- cbind(output_for_this_sample, sample_data[1, -seq(1, 9)])
+
     outputs <- rbind(outputs, output_for_this_sample)
 
     ########
@@ -123,15 +115,13 @@ for (sample_name in samples) {
     plot <- plot +
         geom_line(aes(Temperature, .fitted), predictions, col = "blue") +
         coord_cartesian(
-            xlim = c(23, 40),
-            ylim = c(0, 1)
+            xlim = c(23, 42),
+            ylim = c(0.1, 0.51)
         )
-    # ylim = c(min(rlc_metrics$QY_max), max(rlc_metrics$QY_max)))
+    # ylim = c(min(rlc_metrics$qy_ek), max(rlc_metrics$qy_ek)))
 
     suppressMessages(ggsave(paste0(plots, sample_name, ".png"), plot))
 }
 
 
 write.csv(outputs, output)
-```
-

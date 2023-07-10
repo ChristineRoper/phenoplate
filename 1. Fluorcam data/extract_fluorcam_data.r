@@ -1,18 +1,13 @@
-Reads all Fluorcam files (T1, T2, T2) and creates a data frame with one row per measurement
-Input: Sample List.csv (SampleID, Folder, FirstArea, LastArea, Temp1, Temp2, Temp3, Temp4, Temp5, Temp6, ...)
-If the column "Folder" is blank, that sample is skipped
-columns from 11 onwards are not used but will be included in the output
+# Reads all Fluorcam files (T1, T2, T2) and creates a data frame with one row per measurement
+# Input: Sample List.csv (SampleID, Folder, FirstArea, LastArea, Temp1, Temp2, Temp3, Temp4, Temp5, Temp6, ...)
+# If the column "Folder" is blank, that sample is skipped
+# columns from 11 onwards are not used but will be included in the output
 
-```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
+flourcam_files <- "1. Fluorcam data/Fluorcam Files" # no trailing slash
 sample_list <- "1. Fluorcam data/Sample list.csv"
-output <- "1. Fluorcam data/fluorcam_data.csv"
-# Where are the flourcam files relative to working directory
-flourcam_files <- ".." # no trailing slash
-```
+output <- "1. Fluorcam data/outputs/fluorcam_data.csv"
 
 # Metrics of interest from each timepoint file
-```{r}
 t1_metrics <- c("Fm")
 t2_metrics <- c(
     paste0("PAR", seq(1:15)), # Equivelent to writing PAR1, PAR2, ... PAR15
@@ -21,11 +16,8 @@ t2_metrics <- c(
     paste0("NPQ_Lss", seq(1:15))
 )
 t3_metrics <- c("Fv/Fm_Lss1", "Fm", "QY_max")
-```
 
-
-```{r}
-library(dplyr)
+library(dplyr) # for filter
 
 sample_list <- read.csv(sample_list, header = TRUE)
 sample_list$SampleID <- as.factor(sample_list$SampleID)
@@ -56,7 +48,7 @@ for (folder in levels(sample_list$Folder)) {
         new_row <- data.frame(SampleID = sample$SampleID)
 
         # Add any extra columns that were in the input file (after the first 11)
-        new_row <- cbind(new_row, sample[, 11:ncol(sample)])
+        extra_columns <- sample[, 11:ncol(sample)]
 
         for (area_number in sample$FirstArea:sample$LastArea) {
             # columns are named "Area <area_number>"
@@ -90,11 +82,10 @@ for (folder in levels(sample_list$Folder)) {
             add_metrics(t3_metrics, t3, "T3")
 
             # Add the new row to 'data'
-            data <- rbind(data, new_row)
+            data <- rbind(data, cbind(new_row, extra_columns))
         }
     }
 }
 
 # View(data)
 write.csv(data, output)
-```

@@ -1,37 +1,20 @@
-```{r, setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 4/Data/Phenoplate data/R analysis")
+input <- "1. Fluorcam data/outputs/fluorcam_data.csv"
+output <- "3. Thermal Curves/outputs/NPQ_residual/exponential raw output.csv"
+plots <- "3. Thermal Curves/outputs/NPQ_residual/plots/"
 
-input <- "fluorcam_data.csv"
-output <- "Thermal Curves/NPQ_residual/exponential raw output.csv"
-plots <- "Thermal Curves/NPQ_residual/plots/"
-```
-
-```{r}
 library(dplyr)
 library(broom)
-source("christineTheme.r")
-```
+source("utils/default_theme.r")
 
 # Load Data
-```{r}
-data <- read.csv(input, header = TRUE, colClasses = c(
-    "character",
-    "factor", "factor", "factor", "factor", "factor", "factor", "factor", "numeric", "numeric",
-    rep("numeric", 15),
-    rep("numeric", 15),
-    rep("numeric", 15),
-    rep("numeric", 15),
-    "numeric", "numeric", "numeric"
-))
+data <- read.csv(input, header = TRUE)
 
 data$NPQ_residual <- pmax(0, (data$T1_Fm - data$T3_Fm) / data$T3_Fm)
-```
 
 # NPQ Residual
-```{r}
 library(minpack.lm) # for nlsLM
 library(ggplot2) # for nlsLM
-source("nls_outlier_removal.r")
+source("utils/nls_outlier_removal.r")
 
 
 printOnTop <- function(...values) {
@@ -49,7 +32,7 @@ for (sample_name in samples) {
     #################
     plot <- ggplot(sample_data, aes(Temperature, NPQ_residual)) +
         geom_point() +
-        christineTheme +
+        default_theme +
         coord_cartesian(
             xlim = c(min(sample_data$Temperature), max(sample_data$Temperature))
         ) +
@@ -95,12 +78,15 @@ for (sample_name in samples) {
     r <- coef(fit)[["r"]]
     output_for_this_sample <- data.frame(
         SampleID = sample_name,
-        Group = sample_data$Group[1],
         a = a,
         r = r
         # AIC = AIC(fit),
         # RSS = deviance(fit)
     )
+
+    # add extra cols
+    output_for_this_sample <- cbind(output_for_this_sample, sample_data[1, -seq(1, 9)])
+
     outputs <- rbind(outputs, output_for_this_sample)
 
     ########
@@ -128,5 +114,3 @@ for (sample_name in samples) {
 
 
 write.csv(outputs, output)
-```
-
