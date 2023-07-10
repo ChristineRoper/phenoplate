@@ -1,0 +1,230 @@
+---
+title: "PCA Phenoplate Anaylsis"
+author: "Christine"
+date: "5/07/2023"
+---
+
+# Load data from file
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
+rlc_input <- "2. Rapid Light Curves/rlc_qy_metrics_webb.csv"
+rlc_etr_input <- "2. Rapid Light Curves/rlc_metrics_etr.csv"
+npq_input <- "1. Fluorcam data/fluorcam_data.csv"
+```
+
+# Combine Inputs
+```{r}
+rlc_metrics <- read.csv(input)
+npq <- read.csv(npq_input)
+rlc_etr <- read.csv(rlc_etr_input)
+
+if (nrow(rlc_metrics) != nrow(npq)) {
+  stop("rlc_metrics and npq differ")
+}
+if (nrow(rlc_metrics) != nrow(rlc_etr)) {
+  stop("rlc_metrics and rlc_etr differ")
+}
+
+
+sorted_rlc <- rlc_metrics[order(rlc_metrics$SampleID), ]
+sorted_rlc_etr_input <- rlc_etr[order(rlc_etr$SampleID), ]
+sorted_npq <- npq[order(npq$SampleID), ]
+
+sorted_rlc$NPQ_residual <- pmax(0, (sorted_npq$T1_Fm - sorted_npq$T3_Fm) / sorted_npq$T3_Fm)
+sorted_rlc$ETRmax <- sorted_rlc_etr_input$Pmax
+sorted_rlc$QYmax <- sorted_rlc$QY_max
+```
+
+# PCA
+```{r}
+# https://www.statology.org/scree-plot-r/
+
+library(dplyr) # for filter
+library(ggplot2)
+# library(ggfortify)
+
+for (area in 1:6) {
+  area_data <- filter(sorted_rlc, Area == area)
+  proportions_only <- area_data[, c("QYmax", "Ek", "qy_ek", "NPQ_residual", "ETRmax")]
+  pca_results <- prcomp(proportions_only)
+  print(summary(pca_results))
+
+  # Data from the PCA above
+  pca_data <- as.data.frame(pca_results$x)
+  # Add Group
+  pca_data$Group <- area_data$Group
+
+  # autoplot
+
+  print(autoplot(pca_results, data = pca_data, colour = "Group", loadings = TRUE))
+
+  # Scree
+
+  var_explained <- pca_results$sdev^2 / sum(pca_results$sdev^2)
+  plot <- qplot(c(1:length(var_explained)), var_explained) +
+    geom_line() +
+    xlab("Principal Component") +
+    ylab("Variance Explained") +
+    ggtitle("Scree Plot", subtitle = area) +
+    ylim(0, 1)
+
+  print(plot)
+
+  # PCA Plot
+  # Data from the PCA above
+  pca_data <- as.data.frame(pca_results$x)
+  # Add Site and Treatment
+  pca_data$Site <- category_proportion_by_transect$site
+
+  # Make Rayban first
+  pca_data$Site <- relevel(pca_data$Site, "Rayban")
+
+  pca_data$Treatment <- category_proportion_by_transect$treatment
+
+
+  # calculate percentages to use in the axis labels
+  percentage <- round(pca_results$sdev^2 / sum(pca_results$sdev^2) * 100, 1)
+  percentage <- paste(colnames(pca_data), "(", paste(format(percentage, digits = 1), "%", ")", sep = ""))
+
+  loadings <- as.data.frame(pca_results$rotation)
+  loadingLen <- 1500
+
+  plot = ggplot(pca_data, loadings = TRUE, aes(x = PC1, y = PC2, color = Group)) +
+    # add loadings
+    geom_segment(
+      data = loadings,
+      aes(x = 0, y = 0, xend = PC1 * loadingLen, yend = PC2 * loadingLen),
+      arrow = arrow(length = unit(1 / 2, "picas")),
+      lwd = 0.4,
+      color = "grey60"
+    ) +
+    # add confidence interval ellipses
+    stat_ellipse(level = 0.9) +
+    stat_ellipse(level = 0.8, linetype = 3) +
+    # add points
+    geom_point(aes(color = Group), size = 3) +
+    # add loadings labels
+    annotate("text", x = lab_x, y = lab_y, label = rownames(pca_results$rotation), size = 3) +
+    # add axis labels
+    xlab(percentage[1]) +
+    ylab(percentage[2]) + 
+    ggtitle('PCA', subtitle = area)
+    # Set the labels in the legend
+    # scale_shape_discrete(labels = c("Baseline (2018)", "Control (2021)", "Outplant (2021)")) +
+    # scale_x_continuous(limits = c(-1200, 1350)) + # set x-axis width
+    # scale_y_continuous(limits = c(-1300, 900)) + # set y-axis height
+    # christineTheme
+
+    print(plot)
+}
+```
+
+
+
+# Anova and assumption tests on PC scores
+```{r}
+library(vegan)
+library(dplyr)
+
+# PC scores with site, year, month_year, treatment
+pc_scores <- cbind(
+  # site, year, month_year, treatment
+  category_proportion_by_transect[, 1:4],
+  # PC1 and PC2
+  scores(pca_results, choices = c(1, 2))
+)
+
+# Run ANOVAs
+anova_pc1 <- aov(PC1 ~ site * treatment, data = pc_scores)
+anova_pc2 <- aov(PC2 ~ site * treatment, data = pc_scores)
+
+anova_pc1
+summary(anova_pc1)
+TukeyHSD(anova_pc1)
+
+anova_pc2
+summary(anova_pc2)
+TukeyHSD(anova_pc2)
+```
+
+# check assumptions of normality & homogeneity of variance
+```{r}
+# Test normality of residuals
+shapiro.test(residuals(anova_pc1))
+shapiro.test(residuals(anova_pc2))
+
+# Bartlett test for homogeneity of variance
+bartlett.test(PC1 ~ interaction(treatment, site), data = pc_scores)
+bartlett.test(PC2 ~ interaction(treatment, site), data = pc_scores)
+```
+
+# PCA Plot
+```{r}
+# Data from the PCA above
+pca_data <- as.data.frame(pca_results$x)
+# Add Site and Treatment
+pca_data$Site <- category_proportion_by_transect$site
+
+# Make Rayban first
+pca_data$Site <- relevel(pca_data$Site, "Rayban")
+
+pca_data$Treatment <- category_proportion_by_transect$treatment
+
+
+# calculate percentages to use in the axis labels
+percentage <- round(pca_results$sdev^2 / sum(pca_results$sdev^2) * 100, 1)
+percentage <- paste(colnames(pca_data), "(", paste(format(percentage, digits = 1), "%", ")", sep = ""))
+
+loadings <- as.data.frame(pca_results$rotation)
+loadingLen <- 1500
+
+# Manually adjust coordinates of labels: "Abiotic-hard" "Abiotic-soft" "CA" "Ocotocorals" "Inverts" "MA" "Scleractinian Coral" "Turf"
+lab_x <- c(-1045, 30, -70, -395, 110, -65, 1160, 390)
+lab_y <- c(730, -1240, 80, -100, 0, -55, 710, -110)
+# x = (loadings$PC1 * loadingLen * 1.1), y = (loadings$PC2 * loadingLen * 1.1),
+
+ggplot(pca_data, loadings = TRUE, aes(x = PC1, y = PC2, color = Site)) +
+  # add loadings
+  geom_segment(
+    data = loadings,
+    aes(x = 0, y = 0, xend = PC1 * loadingLen, yend = PC2 * loadingLen),
+    arrow = arrow(length = unit(1 / 2, "picas")),
+    lwd = 0.4,
+    color = "grey60"
+  ) +
+  # add confidence interval ellipses
+  stat_ellipse(level = 0.9) +
+  stat_ellipse(level = 0.8, linetype = 3) +
+  # add points
+  geom_point(aes(color = Site, shape = Treatment), size = 3) +
+  # add loadings labels
+  annotate("text", x = lab_x, y = lab_y, label = rownames(pca_results$rotation), size = 3) +
+  # add axis labels
+  xlab(percentage[1]) +
+  ylab(percentage[2]) +
+  # Set the labels in the legend
+  scale_shape_discrete(labels = c("Baseline (2018)", "Control (2021)", "Outplant (2021)")) +
+  scale_x_continuous(limits = c(-1200, 1350)) + # set x-axis width
+  scale_y_continuous(limits = c(-1300, 900)) + # set y-axis height
+  christineTheme
+
+# saveGraph('PCA')
+ggsave(paste0("PCA", "-190.svg"), device = "svg", width = 190, units = "mm")
+```
+
+Aditional PCA plot
+```{r}
+plot1 <- autoplot(pca_results, data = pca_data, loadings = TRUE, loadings.label = FALSE, loading.label.size = 3, color = Site) +
+  # add points
+  geom_point(aes(color = Site, shape = Treatment), size = 3) +
+  # add confidence interval ellipses
+  stat_ellipse(level = 0.9) +
+  stat_ellipse(level = 0.8, linetype = 3) +
+  # add axis labels
+  xlab(percentage[1]) +
+  ylab(percentage[2]) +
+  # Set the labels in the legend
+  scale_shape_discrete(labels = c("Baseline (2018)", "Control (2021)", "Outplant (2021)")) +
+  christineTheme
+plot1
+```
