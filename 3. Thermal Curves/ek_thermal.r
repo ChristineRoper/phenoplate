@@ -2,6 +2,8 @@ input <- "2. Rapid Light Curves/outputs/rlc_qy_metrics_webb.csv"
 plots <- "3. Thermal Curves/outputs/Ek/plots/"
 output <- "3. Thermal Curves/outputs/Ek/exponential raw output.csv"
 
+remove_outliers <- FALSE # When fitting curve, should we remove outlier residuals and re-fit
+
 
 library(minpack.lm) # for nlsLM
 library(dplyr) # for filter

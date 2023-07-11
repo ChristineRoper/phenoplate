@@ -2,6 +2,8 @@ input <- "2. Rapid Light Curves/outputs/rlc_qy_metrics_webb.csv"
 plots <- "3. Thermal Curves/outputs/Ek/polynomial/plots/"
 output <- "3. Thermal Curves/outputs/Ek/polynomial/exponential raw output.csv"
 
+remove_outliers <- FALSE # When fitting curve, should we remove outlier residuals and re-fit
+
 library(dplyr)
 library(broom)
 source("utils/default_theme.r")

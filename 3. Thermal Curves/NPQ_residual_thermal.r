@@ -2,6 +2,8 @@ input <- "1. Fluorcam data/outputs/fluorcam_data.csv"
 output <- "3. Thermal Curves/outputs/NPQ_residual/exponential raw output.csv"
 plots <- "3. Thermal Curves/outputs/NPQ_residual/plots/"
 
+remove_outliers <- FALSE # When fitting curve, should we remove outlier residuals and re-fit # When fitting curve, should we remove outlier residuals and re-fit
+
 library(dplyr)
 library(broom)
 source("utils/default_theme.r")

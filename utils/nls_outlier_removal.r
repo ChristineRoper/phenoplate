@@ -6,6 +6,10 @@ nls_outlier_removal <- function(data, fit_data, handle_outliers = identity) {
     # fit all data
     fit <- fit_data(data)
 
+    if (remove_outliers == FALSE) {
+        return(list(fit = fit, outliers = data.frame()))
+    }
+
     # Remove outliers
 
     fitted <- augment(fit)

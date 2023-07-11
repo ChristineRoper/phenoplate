@@ -4,6 +4,8 @@ input <- "2. Rapid Light Curves/outputs/fluorcam_RLC_data.csv"
 output <- "2. Rapid Light Curves/outputs/rlc_qy_metrics_webb.csv"
 plots <- "2. Rapid Light Curves/outputs/QY/plots/"
 
+remove_outliers <- FALSE # When fitting curve, should we remove outlier residuals and re-fit
+
 ##
 
 rlc_data <- read.csv(input, header = TRUE)
