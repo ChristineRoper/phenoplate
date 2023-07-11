@@ -5,26 +5,26 @@
 1. You can download the files in this repo as a zip file here: [https://github.com/ChristineRoper/phenoplate/archive/refs/heads/main.zip](https://github.com/ChristineRoper/phenoplate/archive/refs/heads/main.zip)
 1. Extract zip file and move the files to a folder you are going to be working from for this analysis
 1. Set your working directory in R to the folder where you have just put these files. e.g. `setwd('/users/me/phenoplate')`
-1. Put your TXT files from Fluorcam in folders inside `1. Fluorcam data/Fluorcam Files`
-   - One folder per Fluorcam run
-   - Make sure the files are named `T1.TXT`, `T2.TXT`, `T3.TXT`
-   - e.g.
-     - `Fluorcam data/Fluorcam Files/Sample Set 1/T1.TXT`
-     - `Fluorcam data/Fluorcam Files/Sample Set 1/T2.TXT`
-     - `Fluorcam data/Fluorcam Files/Sample Set 1/T3.TXT`
-1. Edit the sample list (`Sample list.csv`) in the `1. Fluorcam data` folder to match you data
-   - 1 row per sample
-   - `Sample ID` can be whatever ID makes sense for you
-   - `Folder` is the folder which contains your TXT files
-     - `FirstArea` is the first phenoplate well for that sample (e.g. `1`)
-   - `LastArea` is the last phenoplate well for that sample (e.g. `6`)
-   - `Temp1-6` are the temperature set for each of the 6 wells
-   - Any other columns (must come last) won’t be used in the analysis, but will be kept so you’ll still have them in the output files at the end
 
 ## `1. Fluorcam data` folder
 
 Extracts data from Fluorcam files
 
+1. Put your TXT files from Fluorcam in folders inside `Fluorcam Files`
+   - One folder per Phenoplate run
+   - Make sure the files are named `T1.TXT`, `T2.TXT`, `T3.TXT`
+   - e.g.
+     - `Fluorcam data/Fluorcam Files/Sample Set 1/T1.TXT`
+     - `Fluorcam data/Fluorcam Files/Sample Set 1/T2.TXT`
+     - `Fluorcam data/Fluorcam Files/Sample Set 1/T3.TXT`
+1. Edit the sample list (`Sample list.csv`) to match you data
+   - 1 row per sample
+   - `Sample ID` can be whatever ID makes sense for you. They must be unique
+   - `Folder` is the folder which contains your TXT files
+     - `FirstArea` is the first phenoplate well for that sample (e.g. `1`)
+   - `LastArea` is the last phenoplate well for that sample (e.g. `6`)
+   - `Temp1-6` are the temperature set for each of the 6 wells
+   - Any other columns (must come last) won’t be used in the analysis, but will be kept so you’ll still have them in the output files at the end
 1. Run `extract_fluorcam_data.r`, this will output `outputs/fluorcam_data.csv` which contains your raw metrics from the TXT files in a format that can be used for analysis
 
 ## `2. Rapid Light Curves` folder
@@ -40,4 +40,4 @@ Fit the Rapid Light Curve data to `P/I` curves
 Fit parameters to thermal curves
 
 1. Run any `.r` file to fit your parameter(s) of interest to the thermal curve. Depending on the parameter, different models are used.
-   - Plots and CSV files will be output to the `outputs` folder.
+   - Plots and csv files will be output to the `outputs` folder.
