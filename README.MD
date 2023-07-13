@@ -32,9 +32,9 @@ Extracts data from Fluorcam files
 Fit the Rapid Light Curve data to `P/I` curves
 
 1. Run `Extract_RLC_data.r` which extracts the light curve data from Fluorcam and output it to `outputs/fluorcam_RLC_data.csv`
-1. Run `rlc_metrics_etr.r` and `rlc_metrics_qy.r` to fit the `P/I` curves to your `ETR` or `QY` data
-1. This will output plots with your raw data and the `P/I` curves for you review (`outputs/QY/plots`), as well as a csv file (`outputs/rlc_qy_metrics_webb.csv`) with your extracted parameters (`QYmax`, `Ek`, `QYek`, `ETRmax`)
+1. Run `rlc_metrics_etr.r` and `rlc_metrics_qy.r` to fit the `P/I` curves to your `ETR` or `QY` data **Note: This code currently uses the Webb P/I model, you should explore which P/I model may fit your data best for most accurate results
 
+1. This will output plots with your raw data and the `P/I` curves for you review (`outputs/QY/plots`), as well as a csv file (`outputs/rlc_qy_metrics_webb.csv`) with your extracted parameters (`QYmax`, `Ek`, `QYek`, `ETRmax`)
 ## `3. Thermal Curves` folder
 
 Fit parameters to thermal curves
