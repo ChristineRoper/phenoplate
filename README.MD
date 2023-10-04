@@ -41,3 +41,17 @@ Fit parameters to thermal curves
 
 1. Run any `.r` file to fit your parameter(s) of interest to the thermal curve. Depending on the parameter, different models are used.
    - Plots and csv files will be output to the `outputs` folder.
+
+
+## Citing 
+
+If you use this code in your publication, please cite it by using the following BibTeX entry.
+
+```bibtex
+@Misc{phenoplate,
+  title =        {FluorCam Rapid Light Curve and Thermal Performance Curve Analysis in R},
+  author =       {Christine Roper, Jake Crosby},
+  howpublished = {\url{https://github.com/ChristineRoper/phenoplate}},
+  year =         {2023}
+}
+```
