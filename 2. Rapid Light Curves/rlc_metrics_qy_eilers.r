@@ -13,6 +13,7 @@ rlc_data$SampleID <- as.factor(rlc_data$SampleID)
 rlc_data$Area <- as.factor(rlc_data$Area)
 
 library(ggplot2)
+library(nls.multstart)
 library(minpack.lm) # for nlsLM
 library(broom) # for augment
 source("utils/default_theme.r")
@@ -77,14 +78,25 @@ for (sample in sample_ids) {
         fit_data <- function(data) {
             tryCatch(
                 {
-                    nlsLM(
+                    fit <- nls_multstart(
                         QY ~ eilers_qy_pi(QY_max, IoptExtra, Ek, PAR),
                         data = data,
-                        start = list(QY_max = simple_max, IoptExtra = 100, Ek = 500),
+                        iter = c(1, 3, 5),
+                        start_lower = list(QY_max = simple_max, IoptExtra = 0, Ek = 20),
+                        start_upper = list(QY_max = simple_max, IoptExtra = 200, Ek = 1000),
                         lower = c(0, 0, 0),
                         upper = c(0.8, 1700, 1700),
-                        control = nls.lm.control(maxiter = 500)
+                        supp_errors = "Y",
+                        convergence_count = FALSE
                     )
+                    # nlsLM(
+                    #     QY ~ eilers_qy_pi(QY_max, IoptExtra, Ek, PAR),
+                    #     data = data,
+                    #     start = list(QY_max = simple_max, IoptExtra = 100, Ek = 500),
+                    #     lower = c(0, 0, 0),
+                    #     upper = c(0.8, 1700, 1700),
+                    #     control = nls.lm.control(maxiter = 500)
+                    # )
                 },
                 error = function(e) {
                     cat("error in ", sample, " area ", area, " fit 1\n")

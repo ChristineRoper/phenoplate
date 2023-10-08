@@ -13,6 +13,7 @@ rlc_data$SampleID <- as.factor(rlc_data$SampleID)
 rlc_data$Area <- as.factor(rlc_data$Area)
 
 library(ggplot2)
+library(nls.multstart)
 library(minpack.lm) # for nlsLM
 library(broom) # for augment
 source("utils/default_theme.r")
@@ -41,7 +42,7 @@ print_on_top <- function(...values) {
 
 
 cat("\n")
-for (sample in c("LB 6")) {
+for (sample in sample_ids) {
     print_on_top(sample)
 
     plot <- ggplot() + default_theme
@@ -64,14 +65,25 @@ for (sample in c("LB 6")) {
         handle_outliers <- function(outliers) filter(outliers, PAR > 100)
 
         fit_data <- function(data) {
-            nlsLM(
+            fit <- nls_multstart(
                 ETR ~ eilers_pi(Pmax, IoptExtra, Ek, PAR),
                 data = data,
-                start = list(Pmax = simple_max, IoptExtra = 500, Ek = 100),
+                iter = c(1, 3, 5),
+                start_lower = list(QY_max = simple_max, IoptExtra = 0, Ek = 20),
+                start_upper = list(QY_max = simple_max, IoptExtra = 500, Ek = 1000),
                 lower = c(0, 0, 0),
                 upper = c(simple_max * 2, 1700, 1700),
-                control = nls.lm.control(maxiter = 500)
+                supp_errors = "Y",
+                convergence_count = FALSE
             )
+            # nlsLM(
+            #     ETR ~ eilers_pi(Pmax, IoptExtra, Ek, PAR),
+            #     data = data,
+            #     start = list(Pmax = simple_max, IoptExtra = 500, Ek = 100),
+            #     lower = c(0, 0, 0),
+            #     upper = c(simple_max * 2, 1700, 1700),
+            #     control = nls.lm.control(maxiter = 500)
+            # )
         }
 
 
@@ -88,10 +100,19 @@ for (sample in c("LB 6")) {
 
         # skip the rest if we couldn't fit
         if (is.null(fit)) {
-            fail_plot <- plot +
-                geom_line(data = sample_data, mapping = aes(x = PAR, y = ETR, col = Area), alpha = 0.2) +
-                geom_point(data = sample_data, mapping = aes(x = PAR, y = ETR, col = Area))
-            suppressMessages(ggsave(paste0(plots, "failed/", sample, "Eilers.png"), fail_plot))
+            print(paste("Could not fit", sample))
+            new_row <- data.frame(
+                ETR_max = NA,
+                Ek = NA,
+                Iopt = NA,
+                AIC = NA,
+                outliersRemoved = 0
+            )
+            # add extra columns
+            new_row <- cbind(new_row, area_data[1, -c(1, 5, 6, 7)])
+
+            output_data <- rbind(output_data, new_row)
+
             next # go on to the next sample
         }
 
@@ -144,6 +165,7 @@ for (sample in c("LB 6")) {
         geom_point(data = sample_data, mapping = aes(x = PAR, y = ETR, col = Area)) +
         # Fit 1
         geom_line(data = fit_curves, mapping = aes(x = PAR, y = ETR, col = Area), linetype = 1) +
+        labs(y = "ETRmax", x = "PAR") +
 
         # coord_cartesian(ylim = c(0, 1), xlim = c(0, max(sample_data$PAR))) +
         ggtitle(sample)
