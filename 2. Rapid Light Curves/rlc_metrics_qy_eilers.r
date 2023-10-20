@@ -134,7 +134,7 @@ for (sample in sample_ids) {
             outliersRemoved = nrow(outliers)
         )
         # add extra columns
-        new_row <- cbind(new_row, area_data[1, -c(1, 5, 6, 7)])
+        new_row <- cbind(new_row, area_data[1, -c(1, seq(5, 38))])
 
         output_data <- rbind(output_data, new_row)
 
