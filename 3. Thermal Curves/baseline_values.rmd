@@ -1,9 +1,0 @@
-```{r}
-input <- "2. Rapid Light Curves/outputs/rlc_qy_metrics_eilers.csv"
-
-library(dplyr)
-
-data <- read.csv(input, header = TRUE) %>%
-    # Filter leaving only Area1 (lowest temp)
-    filter(Area == 1)
-```

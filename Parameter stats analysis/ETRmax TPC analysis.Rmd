@@ -1,0 +1,11 @@
+---
+title: "ETRmax TPC analysis"
+author: "Christine"
+date: "2023-10-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
+#setwd("~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
+```

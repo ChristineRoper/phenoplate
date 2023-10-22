@@ -1,0 +1,62 @@
+```{r, setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
+```
+
+```{r}
+input <- "2. Rapid Light Curves/outputs/rlc_qy_metrics_eilers.csv"
+#setwd("~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis")
+
+library(dplyr)
+
+baseline_data <- read.csv(input, header = TRUE) %>%
+    # Filter leaving only Area1 (lowest temp)
+    filter(Area == 1)
+
+#make Group a factor
+baseline_data$Group = as.factor(baseline_data$Group)
+```
+#Check normality of QYmax and run test
+```{r}
+#baseline_data$QY_log <- log10(baseline_data$QY_max)
+shapiro.test(baseline_data$QY_max) #did not pass
+bartlett.test(QY_max ~ Group, data = baseline_data) #did not pass
+
+#non-parametric alternative
+kruskal.test(QY_max ~ Group, data = baseline_data)
+
+Dunn_result <- dunnTest(QY_max ~ Group, data = baseline_data, method="bh")
+View(Dunn_result$res)
+
+```
+#plot
+```{r}
+library(ggplot2)
+source("utils/default_theme.r")
+
+#aggregate data + create StdErr function
+stdErr <- function(x) sd(x)/sqrt(length(x))
+stdErrs = aggregate(baseline_data$QY_max, by=list(baseline_data$Group), stdErr)
+means = aggregate(baseline_data$QY_max, by=list(baseline_data$Group), mean)
+aggregated <- data.frame(Group=means[1], Mean=means$x, StdErr=stdErrs$x)
+colnames(aggregated) = c( "Group" , "Mean", "StdErr" )
+
+
+QYmax_baseline_plot = ggplot(data=aggregated, aes(x=Group, y=Mean)) +
+  geom_point(stat="identity", position=position_dodge(width=1), size=2) +
+  geom_errorbar(aes(ymin=Mean-StdErr, ymax=Mean+StdErr), width=.05, size=0.4,colour="azure4",
+                 position=position_dodge(0.9)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,)) + 
+    theme(axis.title.x = element_text(margin = margin(t = 10))) +
+    theme(axis.title.y = element_text(margin = margin(r = 10))) +
+  ylim(0.25,0.75) +
+  ylab ("Mean initial value (±SE)") +
+  xlab ("Group") +
+  default_theme
+  
+print(QYmax_baseline_plot)
+ggsave("3. Thermal Curves/plots/QYmax_baseline_plot.png")
+
+
+```
+
+
