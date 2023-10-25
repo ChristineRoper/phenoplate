@@ -42,8 +42,8 @@ source("utils/default_theme.r")
 
 #aggregate data + create StdErr function
 stdErr <- function(x) sd(x)/sqrt(length(x))
-stdErrs = aggregate(ETRmax_data$ip, by=list(ETRmax_data$Group), stdErr)
-means = aggregate(ETRmax_data$ip, by=list(ETRmax_data$Group), mean)
+stdErrs = aggregate(ETRmax_data$ed50, by=list(ETRmax_data$Group), stdErr)
+means = aggregate(ETRmax_data$ed50, by=list(ETRmax_data$Group), mean)
 aggregated <- data.frame(Group=means[1], Mean=means$x, StdErr=stdErrs$x)
 colnames(aggregated) = c( "Group" , "Mean", "StdErr" )
 
@@ -55,7 +55,7 @@ ETRmax_ED50_plot = ggplot(data=aggregated, aes(x=Group, y=Mean)) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,)) + 
     theme(axis.title.x = element_text(margin = margin(t = 10))) +
     theme(axis.title.y = element_text(margin = margin(r = 10))) +
-  #scale_y_continuous(breaks = c(35,36,37), limits = c(35, 37)) +
+  scale_y_continuous(breaks = c(35,36,37), limits = c(35, 37)) +
   # ylim(35,37) +
   ylab ("Mean Ed50 (±SE)") +
   xlab ("Group") +
@@ -67,36 +67,6 @@ ggsave("Parameter stats analysis/ETRmax_ED50_plot.png")
 
 ```
 
-#log logistic plots averaged by group
-```{r}
-input <- "2. Rapid Light Curves/outputs/rlc_etr_metrics_eilers.csv"
-plots <- "Parameter stats analysis/Averaged ED50 Plots/"
-
-library(ggfortify)
-library(dplyr)
-library(readr)
-library(tidyr)
-library(drc) # for drm
-source("utils/default_theme.r")
-
-# Load Data
-data <- read_csv(input)
-
-mean_by_group <- aggregate(data, ETR_max ~ Temperature + Group, mean)
-
-
-DRCpam <- drm(ETR_max ~ Temperature,
-    data = mean_by_group, curveid = Group,
-    fct = LL.3(names = c("hill", "max", "ed50"))
-)
-compParm(DRCpam, "ed50")
-compParm(DRCpam, "ed50", "-")
-plot(DRCpam, col = 1:15, lty = 1, lwd = 2, pch = 1,legend = FALSE)
-# points(pamdata$Temperature, pamdata$PAM)
-ED(DRCpam, c(50))[, 1]
-
-
-```
 
 ```{r}
 library(drc)
@@ -117,6 +87,11 @@ model <-  drm(ETR_max ~ Temperature,
 
 # Summary of the model
 summary(model)
+
+#Outputs ED50 values for each group
+compParm(DRCpam, "ed50")
+compParm(DRCpam, "ed50", "-")
+ED(DRCpam, c(50))[, 1]
 
 # Generate Temperature values for prediction
 Temperature_values <- seq(min(data$Temperature), max(data$Temperature), length.out = 100)
@@ -152,7 +127,7 @@ ggplot(data = plot_data, aes(x = Temperature, y = response, color = Group)) +
   #geom_point(data = data, aes(x = Temperature, y = ETR_max, color = Group), size = 3, alpha = 0.7) +
   labs(x = "Temperature", y = "ETRmax") +
   ggtitle("ED50 curve") +
-  theme_minimal()
+  default_theme
 
 ggsave(paste0(plots,"ETRmax group averages.png"))
 
