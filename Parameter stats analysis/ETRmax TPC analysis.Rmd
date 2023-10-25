@@ -55,9 +55,9 @@ ETRmax_ED50_plot = ggplot(data=aggregated, aes(x=Group, y=Mean)) +
   theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1,)) + 
     theme(axis.title.x = element_text(margin = margin(t = 10))) +
     theme(axis.title.y = element_text(margin = margin(r = 10))) +
-  scale_y_continuous(breaks = c(35,36,37), limits = c(35, 37)) +
-  # ylim(35,37) +
-  ylab ("Mean Ed50 (±SE)") +
+  #scale_y_continuous(breaks = c(35,36,37), limits = c(34.5,36.5)) +
+   ylim(34.5,36.5) +
+  ylab ("Mean ED50 (±SE)") +
   xlab ("Group") +
   default_theme
   
