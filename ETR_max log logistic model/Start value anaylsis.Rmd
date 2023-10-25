@@ -1,0 +1,50 @@
+---
+title: "ETRmax start value comparison log logistic model"
+author: "Christine"
+date: "October 2023"
+output: html_document
+---
+
+```{r}
+setwd("~/Documents/PhD/Chapter 3/Data/Phenoplate data/R analysis/ETR_max log logistic model")
+Max_data <- read.csv("Max.csv", header = TRUE, stringsAsFactors = TRUE)
+
+```
+
+#ANOVA
+```{r}
+Max_ANOVA <- aov(Max ~ Group, data = Max_data) 
+summary(Max_ANOVA)
+TukeyHSD(Max_ANOVA)
+
+```
+
+
+#Plot
+```{r}
+library(ggplot2)
+source("default_theme.r")
+
+#aggregate data + create StdErr function
+stdErr <- function(x) sd(x)/sqrt(length(x))
+stdErrs = aggregate(Max_data$Max, by=list(Max_data$Group), stdErr)
+means = aggregate(Max_data$Max, by=list(Max_data$Group), mean)
+aggregated <- data.frame(Group=means[1], Mean=means$x, StdErr=stdErrs$x)
+colnames(aggregated) = c( "Group" , "Mean", "StdErr" )
+
+
+Max_plot = ggplot(data=aggregated, aes(x=Group, y=Mean)) +
+  geom_point(stat="identity", position=position_dodge(width=1), size=2) +
+  geom_errorbar(aes(ymin=Mean-StdErr, ymax=Mean+StdErr), width=.05, size=0.4,colour="azure4",
+                 position=position_dodge(0.9)) +
+  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
+  ylim(75,150) +
+  ylab ("Mean starting value") +
+  xlab ("Group") +
+  default_theme
+  
+print(Max_plot)
+ggsave("Max plot.png")
+
+```
+
